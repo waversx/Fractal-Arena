@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Julia Matrix: Dark Orbit (Mobile Ready)</title>
+    <style>
+        :root {
+            --accent: #00f2ff;
+        }
+
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            overflow: hidden; background-color: #000; 
+            font-family: 'Inter', -apple-system, sans-serif; 
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        canvas { 
+            display: block; width: 100%; height: 100%; cursor: crosshair; 
+            touch-action: none; 
+        }
+
+        /* Кнопка настроек: Квадратная, слева сверху */
+        #menu-toggle {
+            position: absolute; top: 20px; left: 20px;
+            width: 45px; height: 45px; 
+            background: rgba(10, 10, 15, 0.85);
+            border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: 10px;
+            cursor: pointer; color: white; font-size: 22px; z-index: 1001;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); 
+            transition: border-color 0.3s, color 0.3s;
+            -webkit-tap-highlight-color: transparent;
+            backdrop-filter: blur(5px);
+        }
+        #menu-toggle:hover { 
+            border-color: var(--accent); 
+            color: var(--accent); 
+        }
+
+        /* Панель управления: Слева сверху (под кнопкой) */
+        #controls {
+            position: absolute; top: 75px; left: 20px;
+            width: 320px; 
+            background: rgba(10, 10, 15, 0.25);
+            backdrop-filter: blur(8px);
+            padding: 25px; border-radius: 28px; border: 1px solid rgba(255,255,255,0.1);
+            color: white; z-index: 1000; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+            transform-origin: top left; /* Анимация теперь из левого верхнего угла */
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            box-sizing: border-box;
+        }
+
+        /* Сворачивается в сторону кнопки */
+        #controls.hidden { 
+            transform: scale(0) translate(-30px, -30px); 
+            opacity: 0; 
+            visibility: hidden; 
+        }
+
+        h2 { font-size: 11px; margin: 0 0 22px 0; text-align: center; letter-spacing: 5px; color: var(--accent); font-weight: 900; text-shadow: 0 2px 4px rgba(0,0,0,0.9); }
+        .label-row { display: flex; justify-content: space-between; font-size: 10px; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1.5px; color: #aaa; text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
+        .label-row span { color: #fff; font-weight: bold; }
+
+        .row { margin-bottom: 20px; }
+        
+        input[type="range"] { width: 100%; cursor: pointer; accent-color: var(--accent); height: 4px; border-radius: 2px; background: rgba(255,255,255,0.2); }
+        
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+        
+        button { 
+            background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15);
+            color: white; padding: 12px; border-radius: 12px; cursor: pointer; font-size: 9px; transition: 0.2s;
+            text-transform: uppercase; font-weight: 800; letter-spacing: 1px;
+            -webkit-tap-highlight-color: transparent; text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+        }
+        button:hover { background: rgba(255,255,255,0.15); border-color: var(--accent); }
+        button.active { background: rgba(0, 242, 255, 0.85); color: black; border-color: var(--accent); box-shadow: 0 0 15px rgba(0, 242, 255, 0.4); text-shadow: none; }
+
+        .btn-custom { font-size: 7.5px; letter-spacing: 0.5px; }
+
+        .bg-toggle { display: flex; gap: 8px; margin-top: 12px; }
+        .bg-btn { flex: 1; padding: 10px; font-size: 9px; border-radius: 10px; }
+
+        .custom-color-pick { display: flex; align-items: center; gap: 15px; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 14px; margin-top: 5px; border: 1px solid rgba(255,255,255,0.1); }
+        input[type="color"] { border: none; width: 32px; height: 32px; cursor: pointer; background: none; }
+        
+        .reset-btn { width: 100%; background: rgba(0,0,0,0.4); border: 1px dashed rgba(255,255,255,0.3); color: #aaa; font-size: 9px; margin-top: 10px; padding: 10px; border-radius: 10px; transition: 0.3s; }
+        .reset-btn:hover { border-color: #fff; color: #fff; }
+
+        @media (max-width: 480px) {
+            #controls { width: calc(100% - 30px); left: 15px; top: 70px; padding: 20px; }
+            #menu-toggle { top: 15px; left: 15px; }
+        }
+    </style>
+</head>
+<body>
+
+    <button id="menu-toggle">⚙</button>
+
+    <div id="controls" class="hidden">
+        <h2>FRACTAL LAB</h2>
+        
+        <div class="label-row">Цветовая палитра</div>
+        <div class="grid">
+            <button class="theme-btn btn-custom active" data-theme="0">Настраиваемая</button>
+            <button class="theme-btn" data-theme="1">Огонь</button>
+            <button class="theme-btn" data-theme="2">Матрица</button>
+            <button class="theme-btn" data-theme="4">Радуга</button>
+        </div>
+
+        <div class="custom-color-pick">
+            <input type="color" id="customColor" value="#00f2ff">
+            <span style="font-size: 10px; opacity: 0.8; text-transform: uppercase; text-shadow: 0 1px 2px #000;">Свой цвет</span>
+        </div>
+
+        <div class="label-row" style="margin-top: 20px;">Режим фона</div>
+        <div class="bg-toggle">
+            <button class="bg-btn active" data-bg="0">Темный</button>
+            <button class="bg-btn" data-bg="1">Светлый</button>
+        </div>
+
+        <div style="height: 20px;"></div>
+
+        <div class="row">
+            <div class="label-row">Сетка <span id="dens-val">45</span></div>
+            <input type="range" id="density" min="10" max="150" value="45">
+        </div>
+
+        <div class="row">
+            <div class="label-row">Детализация <span id="iter-val">100</span></div>
+            <input type="range" id="iterations" min="10" max="400" value="100">
+        </div>
+
+        <div class="row">
+            <div class="label-row">Рамки <span id="gap-val">0.05</span></div>
+            <input type="range" id="gap" min="0" max="0.4" value="0.05" step="0.01">
+        </div>
+
+        <button class="reset-btn" id="reset">СБРОСИТЬ КАМЕРУ</button>
+    </div>
+
+    <canvas id="glcanvas"></canvas>
+
+    <script id="vs" type="x-shader/x-vertex">
+        attribute vec2 position;
+        void main() { gl_Position = vec4(position, 0.0, 1.0); }
+    </script>
+
+    <script id="fs" type="x-shader/x-fragment">
+        precision highp float;
+        uniform vec2 u_res;
+        uniform float u_zoom;
+        uniform vec2 u_offset;
+        uniform float u_density;
+        uniform float u_iter;
+        uniform float u_gap;
+        uniform float u_theme;
+        uniform float u_bg;
+        uniform vec3 u_color;
+
+        vec3 pal(float t, vec3 a, vec3 b, vec3 c, vec3 d) {
+            return a + b * cos(6.28318 * (c * t + d));
+        }
+
+        void main() {
+            vec2 uv = (gl_FragCoord.xy / u_res.xy - 0.5);
+            uv.x *= u_res.x / u_res.y;
+
+            vec2 worldPos = uv / u_zoom + u_offset;
+            vec2 gridId = floor(worldPos * u_density);
+            vec2 c = gridId / u_density;
+            vec2 localUV = fract(worldPos * u_density);
+            
+            float isEdge = step(u_gap, localUV.x) * step(u_gap, localUV.y) * 
+                           step(localUV.x, 1.0 - u_gap) * step(localUV.y, 1.0 - u_gap);
+
+            vec2 z = (localUV - 0.5) * 4.2; 
+            float m = 0.0;
+            for(int i = 0; i < 500; i++) {
+                if(float(i) >= u_iter) break;
+                z = vec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y) + c;
+                if(dot(z, z) > 4.0) break;
+                m += 1.0;
+            }
+
+            vec3 bgColor = (u_bg > 0.5) ? vec3(0.97) : vec3(0.01);
+            vec3 color = bgColor;
+
+            if (m < u_iter) {
+                float dist = m / u_iter;
+                
+                if (u_theme < 0.5) { // Настраиваемая
+                    color = mix(bgColor, u_color, dist * 1.5);
+                } 
+                else if (u_theme < 1.5) { // Огонь
+                    vec3 fire = mix(bgColor, vec3(0.8, 0.1, 0.0), pow(dist, 2.0));
+                    fire = mix(fire, vec3(1.0, 0.45, 0.0), smoothstep(0.35, 0.75, dist));
+                    fire = mix(fire, vec3(1.0, 0.9, 0.2), smoothstep(0.75, 1.0, dist));
+                    color = fire;
+                } 
+                else if (u_theme < 2.5) { // Матрица
+                    vec3 matrixGreen = vec3(0.0, 1.0, 0.2);
+                    color = mix(bgColor, matrixGreen * dist, smoothstep(0.05, 0.4, dist));
+                    if(dist > 0.85) color = mix(color, vec3(0.8, 1.0, 0.8), (dist-0.85)*6.0);
+                }
+                else { // Радуга
+                    float mask = smoothstep(0.05, 0.2, dist); 
+                    vec3 rainbow = pal(dist * 1.1 + 0.6, vec3(0.5), vec3(0.5), vec3(1.0), vec3(0.0, 0.33, 0.67));
+                    color = mix(bgColor, rainbow, mask);
+                }
+            } else {
+                color = vec3(0.0);
+            }
+
+            vec3 finalColor = mix(bgColor * 0.75, color, isEdge);
+            gl_FragColor = vec4(finalColor, 1.0);
+        }
+    </script>
+
+    <script>
+        const canvas = document.getElementById('glcanvas');
+        const gl = canvas.getContext('webgl');
+
+        function createShader(gl, type, source) {
+            const s = gl.createShader(type);
+            gl.shaderSource(s, source);
+            gl.compileShader(s);
+            return s;
+        }
+
+        const prog = gl.createProgram();
+        gl.attachShader(prog, createShader(gl, gl.VERTEX_SHADER, document.getElementById('vs').text));
+        gl.attachShader(prog, createShader(gl, gl.FRAGMENT_SHADER, document.getElementById('fs').text));
+        gl.linkProgram(prog);
+        gl.useProgram(prog);
+
+        const posLoc = gl.getAttribLocation(prog, "position");
+        const buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(posLoc);
+        gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+        const u = {
+            res: gl.getUniformLocation(prog, "u_res"),
+            zoom: gl.getUniformLocation(prog, "u_zoom"),
+            off: gl.getUniformLocation(prog, "u_offset"),
+            dens: gl.getUniformLocation(prog, "u_density"),
+            iter: gl.getUniformLocation(prog, "u_iter"),
+            gap: gl.getUniformLocation(prog, "u_gap"),
+            theme: gl.getUniformLocation(prog, "u_theme"),
+            bg: gl.getUniformLocation(prog, "u_bg"),
+            color: gl.getUniformLocation(prog, "u_color")
+        };
+
+        let target = { zoom: 0.4, x: -0.5, y: 0, density: 45, iter: 100, gap: 0.05, theme: 0, bg: 0 };
+        let current = { zoom: 0.1, x: 0, y: 0, density: 45, iter: 100, gap: 0.05, theme: 0, bg: 0 };
+        let customColor = [0.0, 0.95, 1.0];
+
+        const controls = document.getElementById('controls');
+        document.getElementById('menu-toggle').onclick = () => controls.classList.toggle('hidden');
+
+        const bind = (id, prop) => {
+            document.getElementById(id).oninput = (e) => {
+                target[prop] = parseFloat(e.target.value);
+                document.getElementById(id+'-val').innerText = e.target.value;
+            };
+        };
+        bind('density', 'density');
+        bind('iterations', 'iter');
+        bind('gap', 'gap');
+        
+        document.getElementById('customColor').oninput = (e) => {
+            const h = e.target.value;
+            customColor = [parseInt(h.slice(1,3),16)/255, parseInt(h.slice(3,5),16)/255, parseInt(h.slice(5,7),16)/255];
+        };
+
+        document.querySelectorAll('.theme-btn').forEach(b => {
+            b.onclick = () => {
+                document.querySelector('.theme-btn.active').classList.remove('active');
+                b.classList.add('active');
+                target.theme = parseFloat(b.dataset.theme);
+            };
+        });
+
+        document.querySelectorAll('.bg-btn').forEach(b => {
+            b.onclick = () => {
+                document.querySelector('.bg-btn.active').classList.remove('active');
+                b.classList.add('active');
+                target.bg = parseFloat(b.dataset.bg);
+            };
+        });
+
+        document.getElementById('reset').onclick = () => { target.zoom = 0.4; target.x = -0.5; target.y = 0; };
+
+        // Управление ПК и Телефон
+        let isDrag = false, lx, ly, lastPinchDist = 0;
+
+        canvas.onmousedown = (e) => { isDrag = true; lx = e.clientX; ly = e.clientY; };
+        window.onmouseup = () => isDrag = false;
+        window.onmousemove = (e) => {
+            if(!isDrag) return;
+            target.x -= (e.clientX - lx) / (target.zoom * canvas.height);
+            target.y += (e.clientY - ly) / (target.zoom * canvas.height);
+            lx = e.clientX; ly = e.clientY;
+        };
+        canvas.onwheel = (e) => {
+            e.preventDefault();
+            target.zoom *= (e.deltaY < 0 ? 1.15 : 0.85);
+            target.zoom = Math.min(Math.max(target.zoom, 0.005), 30000);
+        };
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (e.touches.length === 1) {
+                lx = e.touches[0].clientX; ly = e.touches[0].clientY;
+            } else if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                lastPinchDist = Math.hypot(dx, dy);
+                lx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                ly = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (e.touches.length === 1) {
+                const tx = e.touches[0].clientX; const ty = e.touches[0].clientY;
+                target.x -= (tx - lx) / (target.zoom * canvas.height);
+                target.y += (ty - ly) / (target.zoom * canvas.height);
+                lx = tx; ly = ty;
+            } else if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const dist = Math.hypot(dx, dy);
+                const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+
+                if (lastPinchDist > 0) {
+                    target.zoom *= (dist / lastPinchDist);
+                    target.zoom = Math.min(Math.max(target.zoom, 0.005), 30000);
+                }
+                target.x -= (cx - lx) / (target.zoom * canvas.height);
+                target.y += (cy - ly) / (target.zoom * canvas.height);
+                lastPinchDist = dist; lx = cx; ly = cy;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (e.touches.length === 1) { lx = e.touches[0].clientX; ly = e.touches[0].clientY; }
+        });
+
+        function animate() {
+            const l = 0.14; 
+            const lerp = (c, t) => c + (t - c) * l;
+            current.zoom = lerp(current.zoom, target.zoom);
+            current.x = lerp(current.x, target.x);
+            current.y = lerp(current.y, target.y);
+            current.density = lerp(current.density, target.density);
+            current.iter = lerp(current.iter, target.iter);
+            current.gap = lerp(current.gap, target.gap);
+            current.theme = lerp(current.theme, target.theme);
+            current.bg = lerp(current.bg, target.bg);
+
+            render(); requestAnimationFrame(animate);
+        }
+
+        function render() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+
+            gl.uniform2f(u.res, canvas.width, canvas.height);
+            gl.uniform1f(u.zoom, current.zoom);
+            gl.uniform2f(u.off, current.x, current.y);
+            gl.uniform1f(u.dens, current.density);
+            gl.uniform1f(u.iter, current.iter);
+            gl.uniform1f(u.gap, current.gap);
+            gl.uniform1f(u.theme, current.theme);
+            gl.uniform1f(u.bg, current.bg);
+            gl.uniform3fv(u.color, customColor);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+        }
+        animate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Fractal Lab Pro</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #030305; color: #fff; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
+        canvas { display: block; cursor: grab; }
+        canvas:active { cursor: grabbing; }
+        
+        #showMenuBtn {
+            position: absolute; bottom: 15px; right: 15px; z-index: 100; padding: 12px 18px;
+            background: rgba(20, 20, 25, 0.85); color: #00ffcc; border: 1px solid #333;
+            border-radius: 10px; cursor: pointer; backdrop-filter: blur(5px); font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6); transition: bottom 0.3s ease;
+        }
+        body.has-bottom-slider #showMenuBtn { bottom: 110px; }
+
+        #controls {
+            position: absolute; bottom: 15px; right: 15px; width: 340px; max-width: calc(100vw - 30px);
+            background: rgba(15, 15, 20, 0.2); padding: 20px; border-radius: 12px; border: 1px solid #333; 
+            backdrop-filter: blur(15px); box-shadow: 0 10px 40px rgba(0,0,0,0.9); 
+            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), bottom 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); 
+            z-index: 101; box-sizing: border-box; max-height: calc(100vh - 40px); overflow-y: auto;
+        }
+        #controls.hidden { transform: translateX(calc(100% + 50px)) !important; }
+        
+        /* ИСПРАВЛЕНИЕ: Жесткое ограничение высоты, чтобы верхняя часть не уходила за экран */
+        body.has-bottom-slider #controls { 
+            bottom: 110px; 
+            max-height: calc(100vh - 125px); 
+        }
+
+        @media (orientation: landscape) {
+            body.has-bottom-slider #controls { bottom: 15px; right: 15px; width: 45%; max-width: 400px; max-height: calc(100vh - 30px); }
+            body.has-bottom-slider #bottomAngleContainer { bottom: 15px; left: 15px; transform: none; width: 45%; max-width: 400px; }
+            body.has-bottom-slider #showMenuBtn { bottom: 15px; }
+        }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        h2 { margin: 0; font-size: 16px; color: #00ffcc; flex-grow: 1; }
+        
+        .window-btns { display: flex; align-items: center; gap: 12px; }
+        #lockMenuBtn { background: none; border: none; cursor: pointer; padding: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
+        #lockMenuBtn svg { fill: #888; transition: fill 0.3s; }
+        #lockMenuBtn.locked svg { fill: #00ffcc; }
+        #closeMenuBtn { background: none; border: none; color: #ff4444; font-size: 28px; cursor: pointer; line-height: 1; }
+        
+        .control-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 6px; font-size: 11px; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px;}
+        
+        select, input[type="text"], input[type="number"] {
+            width: 100%; padding: 10px; background: rgba(26, 26, 26, 0.8); color: white;
+            border: 1px solid #444; border-radius: 6px; outline: none; box-sizing: border-box; font-size: 14px;
+        }
+        optgroup { background: #222; color: #00ffcc; font-weight: bold; }
+
+        input[type="range"] { -webkit-appearance: none; width: 100%; height: 6px; background: #444; border-radius: 3px; outline: none; margin: 10px 0; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #00ffcc; cursor: pointer; border: 2px solid #fff;}
+
+        .val-display { font-weight: bold; color: #ff007f; float: right; display: inline-block; min-width: 45px; text-align: right; font-variant-numeric: tabular-nums; }
+        
+        #bottomAngleContainer {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 85%; background: rgba(15, 15, 20, 0.3);
+            backdrop-filter: blur(15px); padding: 12px 20px; border-radius: 15px;
+            border: 1px solid #444; z-index: 100; display: none; text-align: center;
+        }
+        #bottomAngleContainer label { color: #00ffcc; font-weight: bold; font-size: 14px;}
+
+        #treeParams, #customLSystemParams { background: rgba(0, 0, 0, 0.4); padding: 12px; border-radius: 8px; border: 1px dashed #444; margin-top: 10px; display: none; margin-bottom: 20px;}
+        .help-btn { background: #00ffcc22; border: 1px solid #00ffcc44; color: #00ffcc; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; width: 100%; margin-top: 10px; text-transform: uppercase;}
+
+        #guideModal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.95); backdrop-filter: blur(20px);
+            display: none; z-index: 2000; overflow-y: auto; padding: 20px; box-sizing: border-box;
+        }
+        .modal-content { max-width: 500px; margin: 0 auto; line-height: 1.6; color: #eee; }
+        .modal-content h3 { color: #00ffcc; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .example-box { background: #000; padding: 15px; border-radius: 10px; font-family: monospace; font-size: 14px; color: #00ffcc; margin: 15px 0; border-left: 4px solid #ff007f; }
+        #closeGuide { background: #00ffcc; border: none; color: #000; padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 30px; width: 100%; text-transform: uppercase; font-size: 16px;}
+
+        #warningToast {
+            position: fixed; top: -200px; left: 50%; transform: translateX(-50%);
+            background: rgba(220, 20, 20, 0.95); color: white; padding: 12px 20px;
+            border-radius: 8px; font-size: 14px; font-weight: bold; z-index: 1000;
+            box-shadow: 0 5px 20px rgba(255, 0, 0, 0.5); border: 1px solid #ff6666;
+            transition: top 0.4s; display: flex; align-items: center; gap: 15px; max-width: 90vw;
+        }
+        #warningToast.show { top: 20px; }
+        #closeWarningBtn { background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;}
+    </style>
+</head>
+<body id="body">
+
+    <div id="warningToast">
+        <span>⚠️ При большом количестве итераций возможны зависания</span>
+        <button id="closeWarningBtn">ОК</button>
+    </div>
+
+    <!-- Обновленный гайд по твоему шаблону -->
+    <div id="guideModal">
+        <div class="modal-content">
+            <h3>Как это работает?</h3>
+            <p>L-система состоит из двух вещей: аксиома — стартовая строка, и правило — замена для символа <b>F</b>.</p>
+            <p><b>Главный принцип:</b> На каждом шаге каждый F в строке заменяется на правило. Остальные символы копируются без изменений. Поле «Правило F» — это правая часть уравнения: <br><b>F = [то, что вы ввели]</b>.</p>
+            
+            <p><b>Команды управления:</b></p>
+            <ul style="padding-left: 20px;">
+                <li><b>F</b> — нарисовать отрезок (палочку).</li>
+                <li><b>+</b> — повернуться <b>направо</b> на заданный угол.</li>
+                <li><b>-</b> — повернуться <b>налево</b> на заданный угол.</li>
+                <li><b>[</b> — сохранить текущее место (начать ветку).</li>
+                <li><b>]</b> — вернуться назад к метке (закончить ветку).</li>
+            </ul>
+
+            <div class="example-box">
+                <b>Пример:</b> <br>Угол = <b>60°</b> <br>Правило F = <b>F + F - - F + F</b><br><br>
+                Программа заменит каждую линию на:<br>
+                палочка → <b>направо</b> 60° → палочка → <b>налево</b> 120° → палочка → <b>направо</b> 60° → палочка.
+            </div>
+
+            <p><b>Ветвление:</b> <b>[</b> и <b>]</b> создают ветки. Всё внутри <b>[...]</b> рисуется как ответвление — после <b>]</b> позиция возвращается к точке где был <b>[</b>. <br><b>F[+F][-F]F</b> — линия, ветка вправо, ветка влево, линия вперёд..</p>
+            <button id="closeGuide">Понятно</button>
+        </div>
+    </div>
+
+    <button id="showMenuBtn">☰ Настройки</button>
+
+    <div id="controls">
+        <div class="header">
+            <h2>Настройки</h2>
+            <div class="window-btns">
+                <button id="lockMenuBtn" title="Закрепить меню">
+                    <svg viewBox="0 0 24 24" width="20" height="20" id="lockSvg">
+                        <path d="M12 17a2 2 0 100-4 2 2 0 000 4zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6-5c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3z"/>
+                    </svg>
+                </button>
+                <button id="closeMenuBtn">×</button>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <label>Тип фрактала</label>
+            <select id="fractalType">
+                <optgroup label="🛠️ Свое создание">
+                    <option value="custom_ls">Конструктор</option>
+                </optgroup>
+                <optgroup label="📐 Геометрия (Фигуры)">
+                    <option value="sierpinski">Треугольник Серпинского</option>
+                    <option value="custom_carpet">Ковер Серпинского</option>
+                    <option value="pythagoras">Дерево Пифагора</option>
+                    <option value="circles">Фрактальные круги</option>
+                    <option value="square_frac">Квадрат</option>
+                </optgroup>
+                <optgroup label="🐉 Пути и Кривые">
+                    <option value="dragon">Кривая дракона</option>
+                    <option value="dragon_double">Тройной дракон</option>
+                    <option value="dragon_triple">Четверной дракон</option>
+                    <option value="terdragon">Кривая Terdragon</option>
+                    <option value="levy">Кривая Леви</option>
+                    <option value="koch_snow">Снежинка Коха</option>
+                    <option value="koch_island_sq">Остров Коха</option>
+                    <option value="sq_snowflake">Квадратная снежинка</option>
+                    <option value="triangle_crv">Треугольная кривая</option>
+                    <option value="sierpinski_ls">Серпинский (Линии)</option>
+                    <option value="sierpinski_curve">Кривая Серпинского</option>
+                </optgroup>
+                <optgroup label="🌀 Заполнение">
+                    <option value="peano_classic">Кривая Пеано</option>
+                    <option value="hilbert">Кривая Гильберта</option>
+                    <option value="moore">Кривая Мура</option>
+                    <option value="peano_gosper">Кривая Пеано-Госпера</option>
+                </optgroup>
+                <optgroup label="💠 Орнаменты">
+                    <option value="crystal">Кристалл</option>
+                    <option value="vicsek">Фрактал Вичека</option>
+                    <option value="gosper_sq">Квадратный Госпера</option>
+                    <option value="tiles">Плитки</option>
+                    <option value="rings">Кольца</option>
+                    <option value="pentaplexity">Pentaplexity</option>
+                    <option value="curve_32">32-сегментная кривая</option>
+                    <option value="krishna">Анклеты Кришны</option>
+                </optgroup>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>Итерации: <span id="iterationValue" class="val-display">4</span></label>
+            <input type="range" id="iterations" min="1" max="15" value="4" step="1">
+        </div>
+
+        <div id="customLSystemParams">
+            <label>Выбрать шаблон:</label>
+            <select id="lsTemplate">
+                <option value="">Свой проект</option>
+                <option value="koch">Снежинка Коха</option>
+                <option value="island">Остров Коха</option>
+                <option value="sq_snow">Квадратная снежинка</option>
+                <option value="triangle">Треугольная кривая</option>
+                <option value="cross">Крест</option>
+            </select>
+            <label style="margin-top:10px">Аксиома:</label>
+            <input type="text" id="lsAxiom" value="F-F-F-F">
+            <label>Угол:</label>
+            <input type="number" id="lsAngle" value="90" step="1">
+            <label>Правило F:</label>
+            <input type="text" id="lsRuleF" value="F-F+F+FF-F-F+F">
+            <!-- Переименовано по твоему запросу -->
+            <button class="help-btn" id="openGuide">Как это работает?</button>
+        </div>
+
+        <div id="treeParams">
+            <label>Наклон дерева: <span id="treeAngleVal" class="val-display">45°</span></label>
+            <input type="range" id="treeAngle" min="10" max="80" value="45" step="1">
+        </div>
+
+        <div class="control-group">
+            <label>Скорость отрисовки</label>
+            <input type="range" id="animSpeed" min="1" max="100" value="100" step="1">
+        </div>
+
+        <div class="control-group">
+            <label>Цвет</label>
+            <select id="colorMode">
+                <option value="rainbow">Радуга</option>
+                <option value="gradient">Градиент</option>
+                <option value="solid">Один цвет</option>
+            </select>
+            <div id="colorParams" class="color-inputs" style="display:none; gap:10px; margin-top:10px;">
+                <input type="color" id="color1" value="#ff0044">
+                <input type="color" id="color2" value="#00bbff">
+            </div>
+        </div>
+    </div>
+
+    <div id="bottomAngleContainer">
+        <label>Настройка угла: <span id="bottomAngleNum" style="display:inline-block; min-width:40px; font-variant-numeric: tabular-nums;">90</span>°</label>
+        <input type="range" id="bottomAngleSlider" min="0" max="360" value="90" step="1">
+    </div>
+
+    <canvas id="fractalCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('fractalCanvas'), ctx = canvas.getContext('2d');
+        const selectType = document.getElementById('fractalType'), inputIterations = document.getElementById('iterations'), inputSpeed = document.getElementById('animSpeed'), displayIterations = document.getElementById('iterationValue');
+        const treeParamsDiv = document.getElementById('treeParams'), customLSDiv = document.getElementById('customLSystemParams'), guideModal = document.getElementById('guideModal');
+        const controlsPanel = document.getElementById('controls'), showMenuBtn = document.getElementById('showMenuBtn'), colorMode = document.getElementById('colorMode');
+        const color1 = document.getElementById('color1'), color2 = document.getElementById('color2'), warningToast = document.getElementById('warningToast');
+        const bottomAngleContainer = document.getElementById('bottomAngleContainer'), bottomAngleSlider = document.getElementById('bottomAngleSlider'), bottomAngleNum = document.getElementById('bottomAngleNum'), lsAngleInput = document.getElementById('lsAngle'), treeAngleInput = document.getElementById('treeAngle'), lsTemplate = document.getElementById('lsTemplate');
+        const lockMenuBtn = document.getElementById('lockMenuBtn');
+
+        let cameraX = 0, cameraY = 0, cameraZoom = 1, isDragging = false, lastMouseX = 0, lastMouseY = 0;
+        let initialPinchDist = null, lastMidX = 0, lastMidY = 0, isMenuLocked = false;
+        let allCommands = [], cachedBatches = [], currentDrawProgress = 0, animFrameId = null, hasSeenWarning = false;
+
+        const fractals = {
+            custom_ls: { engine: 'ls', defaultIter: 3, safeIter: 5, absMax: 8 },
+            circles: { type: 'circles', defaultIter: 3, safeIter: 5, absMax: 7 },
+            pythagoras: { type: 'pythagoras', defaultIter: 6, safeIter: 11, absMax: 15, defaultAngle: 45 },
+            custom_carpet: { type: 'carpet', defaultIter: 4, safeIter: 5, absMax: 7 },
+            sierpinski: { type: 'sierpinski_fill', defaultIter: 5, safeIter: 7, absMax: 9 },
+            dragon: { engine: 'ls', axiom: 'FX', rules: {X: 'X+YF+', Y: '-FX-Y'}, angle: 90, draw: ['F'], defaultIter: 10, safeIter: 14, absMax: 18 },
+            dragon_double: { engine: 'ls', axiom: 'FX+FX', rules: {X: 'X+YF+', Y: '-FX-Y'}, angle: 90, draw: ['F'], defaultIter: 8, safeIter: 13, absMax: 17 },
+            dragon_triple: { engine: 'ls', axiom: 'FX+FX+FX', rules: {X: 'X+YF+', Y: '-FX-Y'}, angle: 90, draw: ['F'], defaultIter: 8, safeIter: 12, absMax: 16 },
+            koch_snow: { engine: 'ls', axiom: 'F--F--F', rules: {F: 'F+F--F+F'}, angle: 60, draw: ['F'], defaultIter: 4, safeIter: 6, absMax: 9 },
+            peano_classic: { engine: 'ls', axiom: 'X', rules: {X: 'XFYFX+F+YFXFY-F-XFYFX', Y: 'YFXFY-F-XFYFX+F+YFXFY'}, angle: 90, draw: ['F'], defaultIter: 3, safeIter: 5, absMax: 6 },
+            hilbert: { engine: 'ls', axiom: 'L', rules: {L: '+RF-LFL-FR+', R: '-LF+RFR+FL-'}, angle: 90, draw: ['F'], defaultIter: 5, safeIter: 7, absMax: 10 },
+            levy: { engine: 'ls', axiom: 'F', rules: {F: '+F--F+'}, angle: 45, draw: ['F'], defaultIter: 10, safeIter: 14, absMax: 18 },
+            koch_island_sq: { engine: 'ls', axiom: 'F+F+F+F', rules: {F: 'F-F+F+FFF-F-F+F'}, angle: 90, draw: ['F'], defaultIter: 2, safeIter: 4, absMax: 6 },
+            crystal: { engine: 'ls', axiom: 'F+F+F+F', rules: {F: 'FF+F++F+F'}, angle: 90, draw: ['F'], defaultIter: 3, safeIter: 5, absMax: 7 },
+            sq_snowflake: { engine: 'ls', axiom: 'F--F', rules: {F: 'F-F+F+F-F'}, angle: 90, draw: ['F'], defaultIter: 4, safeIter: 5, absMax: 7 },
+            vicsek: { engine: 'ls', axiom: 'F-F-F-F', rules: {F: 'F-F+F+F-F'}, angle: 90, draw: ['F'], defaultIter: 4, safeIter: 6, absMax: 8 },
+            sierpinski_ls: { engine: 'ls', axiom: 'YF', rules: {X: 'YF+XF+Y', Y: 'XF-YF-X'}, angle: 60, draw: ['F'], defaultIter: 6, safeIter: 8, absMax: 10 },
+            sierpinski_curve: { engine: 'ls', axiom: 'F+XF+F+XF', rules: {X: 'XF-F+F-XF+F+XF-F+F-X'}, angle: 90, draw: ['F'], defaultIter: 4, safeIter: 6, absMax: 9 },
+            terdragon: { engine: 'ls', axiom: 'F', rules: {F: 'F-F+F'}, angle: 120, draw: ['F'], defaultIter: 6, safeIter: 8, absMax: 11 },
+            moore: { engine: 'ls', axiom: 'LFL-F-LFL', rules: {L: '+RF-LFL-FR+', R: '-LF+RFR+FL-'}, angle: 90, draw: ['F'], defaultIter: 4, safeIter: 7, absMax: 9 },
+            peano_gosper: { engine: 'ls', axiom: 'FX', rules: {X: 'X+YF++YF-FX--FXFX-YF+', Y: '-FX+YFYF++YF+FX--FX-Y'}, angle: 60, draw: ['F'], defaultIter: 4, safeIter: 5, absMax: 7 },
+            gosper_sq: { engine: 'ls', axiom: 'YF', rules: {X: 'XFX-YF-YF+FX+FX-YF-YFFX+YF+FXFXYF-FX+YF+FXFX+YF-FXYF-YF-FX+FX+YFYF-', Y: '+FXFX-YF-YF+FX+FXYF+FX-YFYF-FX-YF+FXYFYF-FX-YFFX+FX+YF-YF-FX+FX+YFY'}, angle: 90, draw: ['F'], defaultIter: 2, safeIter: 3, absMax: 5 },
+            square_frac: { engine: 'ls', axiom: 'F+F+F+F', rules: {F: 'FF+F+F+F+FF'}, angle: 90, draw: ['F'], defaultIter: 3, safeIter: 5, absMax: 7 },
+            tiles: { engine: 'ls', axiom: 'F+F+F+F', rules: {F: 'FF+F-F+F+FF'}, angle: 90, draw: ['F'], defaultIter: 3, safeIter: 4, absMax: 6 },
+            rings: { engine: 'ls', axiom: 'F+F+F+F', rules: {F: 'FF+F+F+F+F+F-F'}, angle: 90, draw: ['F'], defaultIter: 2, safeIter: 4, absMax: 6 },
+            pentaplexity: { engine: 'ls', axiom: 'F++F++F++F++F', rules: {F: 'F++F++F+++++F-F++F'}, angle: 36, draw: ['F'], defaultIter: 3, safeIter: 4, absMax: 6 },
+            curve_32: { engine: 'ls', axiom: 'F+F+F+F', rules: {F: '-F+F-F-F+F+FF-F+F+FF+F-F-FF+FF-FF+F+F-FF-F-F+FF-F-F+F+F-F+'}, angle: 90, draw: ['F'], defaultIter: 2, safeIter: 3, absMax: 4 },
+            krishna: { engine: 'ls', axiom: '-X--X', rules: {X: 'XFX--XFX'}, angle: 45, draw: ['F'], defaultIter: 5, safeIter: 6, absMax: 8 },
+            triangle_crv: { engine: 'ls', axiom: 'F+F+F', rules: {F: 'F-F+F'}, angle: 120, draw: ['F'], defaultIter: 5, safeIter: 8, absMax: 11 }
+        };
+
+        const templates = {
+            koch: { axiom: 'F--F--F', angle: 60, rule: 'F+F--F+F' },
+            island: { axiom: 'F+F+F+F', angle: 90, rule: 'F-F+F+FFF-F-F+F' },
+            sq_snow: { axiom: 'F--F', angle: 90, rule: 'F-F+F+F-F' },
+            triangle: { axiom: 'F+F+F', angle: 120, rule: 'F-F+F' },
+            cross: { axiom: 'F+F+F+F', angle: 90, rule: 'F+FF++F+F' }
+        };
+
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; renderFrame(); }
+        window.addEventListener('resize', resizeCanvas);
+
+        function hexToRgb(hex) {
+            let bigint = parseInt(hex.slice(1), 16); return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
+        }
+
+        function getDrawColor(index, total) {
+            const mode = colorMode.value;
+            if (mode === 'solid') return color1.value;
+            if (mode === 'rainbow') return `hsl(${(index / total) * 360}, 100%, 55%)`;
+            const r1 = hexToRgb(color1.value), r2 = hexToRgb(color2.value), t = index / (total || 1);
+            return `rgb(${Math.round(r1.r + (r2.r - r1.r) * t)}, ${Math.round(r1.g + (r2.g - r1.g) * t)}, ${Math.round(r1.b + (r2.b - r1.b) * t)})`;
+        }
+
+        function updateSliderVisuals() {
+            const f = fractals[selectType.value];
+            const val = parseInt(inputIterations.value);
+            const safeLimit = (selectType.value === 'custom_ls') ? 5 : f.safeIter;
+            const safePct = ((safeLimit - 1) / (f.absMax - 1)) * 100;
+            inputIterations.style.background = `linear-gradient(to right, #444 0%, #444 ${safePct}%, #711 ${safePct}%, #e22 100%)`;
+            if (val > safeLimit) {
+                displayIterations.style.color = '#ff4444';
+                if (!hasSeenWarning) { hasSeenWarning = true; warningToast.classList.add('show'); }
+            } else { displayIterations.style.color = '#ff007f'; }
+        }
+
+        function genCircles(cmds, cx, cy, r, depth) {
+            cmds.push({ type: 'circle', cx, cy, r });
+            if (depth === 0) return;
+            const nr = r / 3;
+            genCircles(cmds, cx, cy, nr, depth - 1);
+            for (let i = 0; i < 6; i++) {
+                const a = i * Math.PI / 3;
+                genCircles(cmds, cx + 2 * nr * Math.cos(a), cy + 2 * nr * Math.sin(a), nr, depth - 1);
+            }
+        }
+
+        function genSierpinski(cmds, x1, y1, x2, y2, x3, y3, depth) {
+            if (depth === 0) { cmds.push({ type: 'poly', pts: [x1, y1, x2, y2, x3, y3] }); return; }
+            const x12 = (x1 + x2) / 2, y12 = (y1 + y2) / 2, x23 = (x2 + x3) / 2, y23 = (y2 + y3) / 2, x31 = (x3 + x1) / 2, y31 = (y3 + y1) / 2;
+            genSierpinski(cmds, x1, y1, x12, y12, x31, y31, depth - 1);
+            genSierpinski(cmds, x12, y12, x2, y2, x23, y23, depth - 1);
+            genSierpinski(cmds, x31, y31, x23, y23, x3, y3, depth - 1);
+        }
+
+        function genPythagoras(cmds, x, y, size, angle, depth, alphaDeg) {
+            if (depth === 0) return;
+            const alpha = alphaDeg * Math.PI / 180;
+            const p2x = x + size * Math.cos(angle), p2y = y + size * Math.sin(angle);
+            const p4x = x + size * Math.cos(angle - Math.PI/2), p4y = y + size * Math.sin(angle - Math.PI/2);
+            const p3x = p4x + size * Math.cos(angle), p3y = p4y + size * Math.sin(angle);
+            cmds.push({ type: 'poly', pts: [x, y, p2x, p2y, p3x, p3y, p4x, p4y] });
+            const ls = size * Math.cos(alpha), rs = size * Math.sin(alpha);
+            genPythagoras(cmds, p4x, p4y, ls, angle - alpha, depth - 1, alphaDeg);
+            genPythagoras(cmds, p4x + ls * Math.cos(angle - alpha), p4y + ls * Math.sin(angle - alpha), rs, angle - alpha + Math.PI/2, depth - 1, alphaDeg);
+        }
+
+        function genCarpet(cmds, x, y, size, depth) {
+            if (depth === 0) { cmds.push({ type: 'rect', x, y, size }); return; }
+            let s = size / 3;
+            for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) if (i !== 1 || j !== 1) genCarpet(cmds, x + i * s, y + j * s, s, depth - 1);
+        }
+
+        function genLSystem(f, iters) {
+            let s = f.axiom;
+            for (let i = 0; i < iters; i++) {
+                let n = '';
+                for (let c of s) n += f.rules[c] || c;
+                s = n;
+            }
+            let cmds = [], ar = f.angle * (Math.PI / 180), ca = 0, x = 0, y = 0, st = [];
+            for (let c of s) {
+                if (f.draw && f.draw.includes(c) || c === 'F') {
+                    let nx = x + Math.cos(ca), ny = y + Math.sin(ca);
+                    cmds.push({ type: 'line', x1: x, y1: y, x2: nx, y2: ny });
+                    x = nx; y = ny;
+                } else if (c === '+') ca += ar;
+                else if (c === '-') ca -= ar;
+                else if (c === '[') st.push({x, y, a: ca});
+                else if (c === ']') { let v = st.pop(); x = v.x; y = v.y; ca = v.a; }
+            }
+            return cmds;
+        }
+
+        function buildBatches() {
+            cachedBatches = []; if (!allCommands.length) return;
+            const chunks = 200, size = Math.ceil(allCommands.length / chunks);
+            let b = null;
+            for (let i = 0; i < allCommands.length; i++) {
+                let idx = Math.floor(i / size);
+                const color = getDrawColor(i, allCommands.length);
+                if (!b || b.idx !== idx) {
+                    b = { idx, color, sP: new Path2D(), fP: new Path2D(), hasF: false, hasS: false, start: i, end: i };
+                    cachedBatches.push(b);
+                }
+                b.end = i; let c = allCommands[i];
+                if (c.type === 'rect' || c.type === 'poly') {
+                    if (c.type === 'rect') b.fP.rect(c.x, c.y, c.size, c.size);
+                    else { b.fP.moveTo(c.pts[0], c.pts[1]); for(let j=2;j<c.pts.length;j+=2) b.fP.lineTo(c.pts[j], c.pts[j+1]); b.fP.closePath(); }
+                    b.hasF = true;
+                } else if (c.type === 'line' || c.type === 'circle') {
+                    if (c.type === 'line') { b.sP.moveTo(c.x1, c.y1); b.sP.lineTo(c.x2, c.y2); }
+                    else { b.sP.moveTo(c.cx + c.r, c.cy); b.sP.arc(c.cx, c.cy, c.r, 0, Math.PI * 2); }
+                    b.hasS = true;
+                }
+            }
+        }
+
+        function generateData() {
+            const type = selectType.value; let f = fractals[type], iters = parseInt(inputIterations.value);
+            if (type === 'custom_ls') {
+                f = { engine: 'ls', draw: ['F'], axiom: document.getElementById('lsAxiom').value.toUpperCase(), angle: parseFloat(lsAngleInput.value)||90, rules: {F: document.getElementById('lsRuleF').value.toUpperCase()}, absMax: 8, safeIter: 5 };
+            }
+            if (iters > f.absMax) iters = f.absMax;
+            displayIterations.innerText = iters; updateSliderVisuals();
+            allCommands = [];
+            if (f.type === 'pythagoras') genPythagoras(allCommands, 0, 0, 1, 0, iters, parseFloat(treeAngleInput.value));
+            else if (f.type === 'carpet') genCarpet(allCommands, 0, 0, 1, iters);
+            else if (f.type === 'circles') genCircles(allCommands, 0, 0, 1, iters);
+            else if (f.type === 'sierpinski_fill') genSierpinski(allCommands, 0, -0.86, 1, 0.86, -1, 0.86, iters);
+            else allCommands = genLSystem(f, iters);
+
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            allCommands.forEach(c => {
+                const p = c.type === 'rect' ? [c.x, c.y, c.x+c.size, c.y+c.size] : c.type === 'line' ? [c.x1, c.y1, c.x2, c.y2] : c.type === 'circle' ? [c.cx-c.r, c.cy-c.r, c.cx+c.r, c.cy+c.r] : c.pts;
+                p.forEach((v, i) => { if (i % 2 === 0) { if (v < minX) minX = v; if (v > maxX) maxX = v; } else { if (v < minY) minY = v; if (v > maxY) maxY = v; } });
+            });
+            cameraZoom = Math.min((canvas.width-80)/(maxX-minX||1), (canvas.height-80)/(maxY-minY||1));
+            cameraX = canvas.width/2 - ((minX+maxX)/2)*cameraZoom; cameraY = canvas.height/2 - ((minY+maxY)/2)*cameraZoom;
+            buildBatches(); currentDrawProgress = 0; startAnimationLoop();
+        }
+
+        function renderFrame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save(); ctx.translate(cameraX, cameraY); ctx.scale(cameraZoom, cameraZoom);
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            cachedBatches.forEach(b => {
+                if (currentDrawProgress < b.start) return;
+                ctx.fillStyle = ctx.strokeStyle = b.color; ctx.lineWidth = 1.2/cameraZoom;
+                if (currentDrawProgress >= b.end) {
+                    if (b.hasF) ctx.fill(b.fP); if (b.hasS) ctx.stroke(b.sP);
+                } else {
+                    for (let i = b.start; i <= currentDrawProgress; i++) {
+                        let c = allCommands[i]; ctx.beginPath();
+                        if (c.type === 'circle') ctx.arc(c.cx, c.cy, c.r, 0, Math.PI*2);
+                        else if (c.type === 'line') { ctx.moveTo(c.x1, c.y1); ctx.lineTo(c.x2, c.y2); }
+                        else if (c.type === 'rect') ctx.rect(c.x, c.y, c.size, c.size);
+                        else if (c.type === 'poly') { ctx.moveTo(c.pts[0], c.pts[1]); for(let j=2;j<c.pts.length;j+=2) ctx.lineTo(c.pts[j], c.pts[j+1]); ctx.closePath(); }
+                        (c.type === 'rect' || c.type === 'poly') ? ctx.fill() : ctx.stroke();
+                    }
+                }
+            });
+            ctx.restore();
+        }
+
+        function startAnimationLoop() {
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+            const speedVal = parseInt(inputSpeed.value);
+            if (speedVal === 100) { currentDrawProgress = allCommands.length; renderFrame(); return; }
+            const loop = () => {
+                if (currentDrawProgress < allCommands.length) {
+                    currentDrawProgress += Math.max(1, Math.floor(allCommands.length * speedVal / 1500));
+                    renderFrame(); animFrameId = requestAnimationFrame(loop);
+                }
+            }; loop();
+        }
+
+        function closeUI() { 
+            if (isMenuLocked) return;
+            if (!controlsPanel.classList.contains('hidden')) controlsPanel.classList.add('hidden');
+            document.querySelectorAll('input').forEach(i => i.blur());
+        }
+
+        window.addEventListener('keydown', (e) => { if(e.key === 'Enter') document.activeElement.blur(); });
+        [controlsPanel, bottomAngleContainer].forEach(el => {
+            el.onmousedown = (e) => e.stopPropagation();
+            el.ontouchstart = (e) => e.stopPropagation();
+        });
+
+        canvas.addEventListener('mousedown', (e) => { closeUI(); isDragging=true; lastMouseX=e.clientX; lastMouseY=e.clientY; });
+        window.addEventListener('mouseup', () => isDragging=false);
+        window.addEventListener('mousemove', (e) => { if(isDragging) { cameraX+=e.clientX-lastMouseX; cameraY+=e.clientY-lastMouseY; lastMouseX=e.clientX; lastMouseY=e.clientY; renderFrame(); }});
+        canvas.addEventListener('wheel', (e) => { e.preventDefault(); closeUI(); const f = e.deltaY < 0 ? 1.1 : 0.9; cameraX = e.clientX - (e.clientX - cameraX) * f; cameraY = e.clientY - (e.clientY - cameraY) * f; cameraZoom *= f; renderFrame(); }, {passive:false});
+        
+        canvas.addEventListener('touchstart', (e) => { 
+            e.preventDefault(); closeUI();
+            if(e.touches.length === 1) { isDragging=true; lastMouseX=e.touches[0].clientX; lastMouseY=e.touches[0].clientY; } 
+            else if(e.touches.length === 2) { 
+                isDragging = false; initialPinchDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+                lastMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2; lastMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            }
+        }, {passive:false});
+
+        canvas.addEventListener('touchmove', (e) => { 
+            e.preventDefault(); if(e.touches.length === 1 && isDragging) { 
+                cameraX += e.touches[0].clientX - lastMouseX; cameraY += e.touches[0].clientY - lastMouseY; 
+                lastMouseX = e.touches[0].clientX; lastMouseY = e.touches[0].clientY; renderFrame(); 
+            } else if(e.touches.length === 2 && initialPinchDist) { 
+                const t1 = e.touches[0], t2 = e.touches[1];
+                const d = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+                const mx = (t1.clientX + t2.clientX) / 2, my = (t1.clientY + t2.clientY) / 2;
+                cameraX += mx - lastMidX; cameraY += my - lastMidY;
+                const f = d / initialPinchDist; cameraX = mx - (mx - cameraX) * f; cameraY = my - (my - cameraY) * f; cameraZoom *= f;
+                initialPinchDist = d; lastMidX = mx; lastMidY = my; renderFrame(); 
+            }
+        }, {passive:false});
+        canvas.addEventListener('touchend', (e) => { 
+            if (e.touches.length === 1) { isDragging = true; lastMouseX = e.touches[0].clientX; lastMouseY = e.touches[0].clientY; } 
+            else { isDragging = false; initialPinchDist = null; }
+        });
+
+        document.getElementById('openGuide').onclick = () => guideModal.style.display = 'block';
+        document.getElementById('closeGuide').onclick = () => guideModal.style.display = 'none';
+        document.getElementById('closeWarningBtn').onclick = () => warningToast.classList.remove('show');
+        showMenuBtn.onclick = (e) => { e.stopPropagation(); controlsPanel.classList.toggle('hidden'); };
+        document.getElementById('closeMenuBtn').onclick = () => { isMenuLocked = false; lockMenuBtn.classList.remove('locked'); controlsPanel.classList.add('hidden'); };
+        lockMenuBtn.onclick = () => { isMenuLocked = !isMenuLocked; lockMenuBtn.classList.toggle('locked', isMenuLocked); };
+
+        lsTemplate.onchange = () => {
+            const t = templates[lsTemplate.value];
+            if(t) {
+                document.getElementById('lsAxiom').value = t.axiom; lsAngleInput.value = t.angle; document.getElementById('lsRuleF').value = t.rule;
+                syncAngle(t.angle);
+            }
+        };
+
+        const syncAngle = (val) => {
+            val = Math.round(val);
+            if (selectType.value === 'pythagoras') { treeAngleInput.value = val; document.getElementById('treeAngleVal').innerText = val + '°'; }
+            else { lsAngleInput.value = val; }
+            bottomAngleSlider.value = val; bottomAngleNum.innerText = val; generateData();
+        };
+
+        bottomAngleSlider.oninput = () => syncAngle(bottomAngleSlider.value);
+        lsAngleInput.oninput = () => syncAngle(lsAngleInput.value);
+        treeAngleInput.oninput = () => syncAngle(treeAngleInput.value);
+
+        colorMode.onchange = () => {
+            const mode = colorMode.value;
+            document.getElementById('colorParams').style.display = (mode === 'rainbow') ? 'none' : 'flex';
+            color2.style.display = (mode === 'gradient') ? 'block' : 'none';
+            buildBatches(); renderFrame();
+        };
+
+        selectType.onchange = () => {
+            const type = selectType.value, f = fractals[type];
+            const hasSlider = (type === 'custom_ls' || type === 'pythagoras');
+            document.getElementById('body').className = hasSlider ? 'has-bottom-slider' : '';
+            bottomAngleContainer.style.display = hasSlider ? 'block' : 'none';
+            customLSDiv.style.display = (type === 'custom_ls') ? 'block' : 'none';
+            treeParamsDiv.style.display = (type === 'pythagoras') ? 'block' : 'none';
+            bottomAngleSlider.min = (type === 'pythagoras') ? 10 : 0; bottomAngleSlider.max = (type === 'pythagoras') ? 80 : 360;
+            inputIterations.max = f.absMax; inputIterations.value = f.defaultIter;
+            const startAngle = (type === 'pythagoras') ? treeAngleInput.value : (type === 'custom_ls' ? lsAngleInput.value : 0);
+            if(hasSlider) syncAngle(startAngle); else generateData();
+        };
+
+        [document.getElementById('lsAxiom'), document.getElementById('lsRuleF')].forEach(el => el.addEventListener('input', generateData));
+        [inputIterations, inputSpeed, color1, color2].forEach(el => el.oninput = () => { if(el===inputIterations) hasSeenWarning=false; generateData(); });
+
+        resizeCanvas(); selectType.value = 'koch_snow'; selectType.dispatchEvent(new Event('change'));
+    </script>
+</body>
+</html>

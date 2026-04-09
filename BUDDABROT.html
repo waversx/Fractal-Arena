@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Фракталы</title>
+    <style>
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            overflow: hidden; background: #000; 
+            font-family: sans-serif; color: white; touch-action: none;
+        }
+        canvas { display: block; width: 100vw; height: 100vh; }
+
+        .top-controls {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 102;
+            display: flex;
+            gap: 10px;
+        }
+
+        .icon-btn {
+            width: 44px; height: 44px;
+            background: rgba(15, 15, 15, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s ease;
+            padding: 0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            user-select: none;
+            -webkit-tap-highlight-color: transparent; /* Убирает синий квадрат при тапе на мобилках */
+            outline: none;
+        }
+
+        /* Применяем hover только для устройств с мышкой, чтобы на телефоне не залипало */
+        @media (hover: hover) {
+            .icon-btn:hover { background: rgba(30, 30, 30, 0.9); border-color: #00f2ff; }
+        }
+        
+        #btn-settings { font-size: 24px; line-height: 1; }
+        #btn-julia { font-family: monospace; font-size: 22px; font-weight: bold; }
+        
+        /* Этот класс показывает, что режим Жулиа включен */
+        #btn-julia.active { 
+            background: rgba(0, 242, 255, 0.15); 
+            border-color: #00f2ff; 
+            color: #00f2ff; 
+            text-shadow: 0 0 8px #00f2ff; 
+        }
+
+        #ui {
+            position: absolute; top: 75px; left: 15px; width: 260px;
+            background: rgba(10, 10, 10, 0.9); backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px;
+            padding: 18px; z-index: 100; 
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        #ui.hidden { transform: translateX(-150%); opacity: 0; pointer-events: none; }
+
+        h1 { margin: 0 0 15px; font-size: 18px; font-weight: normal; color: #00f2ff; }
+        .item { margin-bottom: 12px; }
+        label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; color: #aaa; }
+        label span { color: #fff; }
+
+        select, input[type="range"] {
+            width: 100%; background: #1a1a1a; border: 1px solid #333;
+            color: white; border-radius: 5px; outline: none;
+        }
+        select { padding: 8px; font-size: 13px; }
+        input[type="range"] { -webkit-appearance: none; height: 2px; margin: 10px 0; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 20px; height: 20px; 
+            background: #00f2ff; border-radius: 50%;
+        }
+
+        .stats { font-size: 10px; color: #555; border-top: 1px solid #222; padding-top: 10px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+<div class="top-controls">
+    <button class="icon-btn" id="btn-settings" onclick="document.getElementById('ui').classList.toggle('hidden')">⚙</button>
+    <button class="icon-btn" id="btn-julia" onclick="toggleJuliaBtn()">J</button>
+</div>
+
+<div id="ui">
+    <h1>Настройки</h1>
+
+    <div class="item">
+        <label>Качество</label>
+        <select id="quality">
+            <option value="low">Низкое</option>
+            <option value="medium" selected>Среднее</option>
+            <option value="high">Высокое</option>
+        </select>
+    </div>
+
+    <div class="item">
+        <label>Вид</label>
+        <select id="mode">
+            <option value="buddha">Буддаброт</option>
+            <option value="anti">Антиброт</option>
+        </select>
+    </div>
+
+    <div class="item">
+        <label>Цвета</label>
+        <select id="theme">
+            <option value="nebula">Туманность</option>
+            <option value="deepSpace">Глубокий космос</option>
+            <option value="supernova">Сверхновая</option>
+            <option value="quasar">Квазар</option>
+            <option value="galaxy">Галактика</option>
+            <option value="andromeda">Андромеда</option>
+            <option value="fire">Сияние</option>
+            <option value="rainbow">Радуга</option>
+            <option value="arctic">Лед</option>
+            <option value="infrared">Инфракрасный</option>
+        </select>
+    </div>
+
+    <div class="item">
+        <label>Детализация <span id="iterVal">1500</span></label>
+        <input type="range" id="maxIter" min="500" max="8000" step="100" value="1500">
+    </div>
+
+    <div class="item">
+        <label>Яркость <span id="gammaVal">0.7</span></label>
+        <input type="range" id="gamma" min="0.1" max="1.5" step="0.05" value="0.7">
+    </div>
+
+    <div class="stats">
+        Разрешение: <span id="statRes"></span><br>
+        Точек: <span id="statPoints">0</span>к<br>
+        Зум: <span id="statZoom">1.0</span>x<br>
+        <span id="juliaState" style="color: #00f2ff; display: none; margin-top: 5px; font-weight: bold;">[РЕЖИМ ЖУЛИА АКТИВЕН]</span>
+    </div>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    const previewCanvas = document.createElement('canvas');
+    const pCtx = previewCanvas.getContext('2d');
+
+    let w, h, aspect;
+    let expR, expG, expB;
+    let maxR, maxG, maxB;
+    let totalSamples = 0, frameCounter = 0;
+
+    let view = { x: -0.5, y: 0, scale: 1.5 };
+    let config = {
+        quality: 'medium',
+        mode: 'buddha',
+        theme: 'nebula',
+        maxIter: 1500,
+        gamma: 0.7,
+        speed: 30000 
+    };
+
+    let isJuliaMode = false;
+    let isSelectingJulia = false;
+    let juliaC = { r: 0, i: 0 };
+    let mouseX = 0, mouseY = 0;
+
+    function init() {
+        const sw = window.innerWidth;
+        const sh = window.innerHeight;
+
+        if (config.quality === 'high') {
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            w = canvas.width = Math.floor(sw * dpr);
+            h = canvas.height = Math.floor(sh * dpr);
+        } else {
+            const limit = config.quality === 'low' ? 600 : 900;
+            const s = Math.min(1, limit / Math.max(sw, sh));
+            w = canvas.width = Math.floor(sw * s);
+            h = canvas.height = Math.floor(sh * s);
+        }
+        
+        aspect = w / h;
+
+        previewCanvas.width = Math.floor(w / 3);
+        previewCanvas.height = Math.floor(h / 3);
+
+        document.getElementById('statRes').innerText = w + 'x' + h;
+        expR = new Uint32Array(w * h);
+        expG = new Uint32Array(w * h);
+        expB = new Uint32Array(w * h);
+        reset();
+    }
+
+    function reset() {
+        expR.fill(0); expG.fill(0); expB.fill(0);
+        maxR = maxG = maxB = 1;
+        totalSamples = 0;
+    }
+
+    function toggleJuliaBtn() {
+        if (isJuliaMode || isSelectingJulia) {
+            exitJulia();
+            reset();
+        } else {
+            isSelectingJulia = true;
+            juliaC = { r: view.x, i: view.y };
+            document.getElementById('btn-julia').classList.add('active');
+            updateJuliaPreview();
+        }
+    }
+
+    function finalizeJulia() {
+        if (isSelectingJulia) {
+            isSelectingJulia = false;
+            isJuliaMode = true;
+            document.getElementById('juliaState').style.display = 'block';
+            document.getElementById('btn-julia').classList.add('active');
+            reset();
+        }
+    }
+
+    function exitJulia() {
+        isJuliaMode = false;
+        isSelectingJulia = false;
+        document.getElementById('juliaState').style.display = 'none';
+        document.getElementById('btn-julia').classList.remove('active');
+    }
+
+    // Функция скрытия меню
+    function hideMenuIfOpen() {
+        const ui = document.getElementById('ui');
+        if (!ui.classList.contains('hidden')) {
+            ui.classList.add('hidden');
+        }
+    }
+
+    function isMandel(cr, ci) {
+        let q = (cr - 0.25)**2 + ci**2;
+        if (q * (q + (cr - 0.25)) < 0.25 * ci**2) return true;
+        return (cr + 1)**2 + ci**2 < 0.0625;
+    }
+
+    function updateJuliaPreview() {
+        if (!isSelectingJulia) return;
+        let pw = previewCanvas.width;
+        let ph = previewCanvas.height;
+        let img = pCtx.createImageData(pw, ph);
+        let data = img.data;
+
+        for (let y = 0; y < ph; y++) {
+            for (let x = 0; x < pw; x++) {
+                let zr = (x / pw * 2 - 1) * view.scale * aspect + view.x;
+                let zi = (y / ph * 2 - 1) * view.scale + view.y;
+                let iter = 0;
+                while (zr*zr + zi*zi < 4 && iter < 40) {
+                    let tr = zr*zr - zi*zi + juliaC.r;
+                    zi = 2*zr*zi + juliaC.i;
+                    zr = tr;
+                    iter++;
+                }
+                let idx = (y * pw + x) * 4;
+                if (iter === 40) {
+                    data[idx] = 0; data[idx+1] = 242; data[idx+2] = 255; data[idx+3] = 120;
+                } else {
+                    data[idx+3] = 0; 
+                }
+            }
+        }
+        pCtx.putImageData(img, 0, 0);
+    }
+
+    const path = new Float32Array(16005); 
+
+    function iterate() {
+        const isB = config.mode === 'buddha';
+        const iter = config.maxIter;
+        
+        for (let k = 0; k < config.speed; k++) {
+            let cr, ci, zr, zi;
+
+            if (isJuliaMode) {
+                cr = juliaC.r;
+                ci = juliaC.i;
+                if (Math.random() > 0.5) {
+                    zr = (Math.random() * 4 - 2);
+                    zi = (Math.random() * 4 - 2);
+                } else {
+                    zr = (Math.random() * 2 - 1) * view.scale * aspect + view.x;
+                    zi = (Math.random() * 2 - 1) * view.scale + view.y;
+                }
+            } else {
+                cr = (Math.random() * 2 - 1) * view.scale * aspect + view.x;
+                ci = (Math.random() * 2 - 1) * view.scale + view.y;
+                if (isB && isMandel(cr, ci)) continue;
+                zr = 0; zi = 0;
+            }
+
+            let pLen = 0, escaped = false;
+            for (let i = 0; i < iter; i++) {
+                let tr = zr * zr - zi * zi + cr;
+                zi = 2 * zr * zi + ci; zr = tr;
+                path[pLen++] = zr; path[pLen++] = zi;
+                if (zr * zr + zi * zi > 4) { escaped = true; break; }
+            }
+
+            if ((isB && escaped) || (!isB && !escaped)) {
+                for (let i = 0; i < pLen; i += 2) {
+                    let sx = Math.floor((path[i] - view.x + view.scale * aspect) / (2 * view.scale * aspect) * w);
+                    let sy = Math.floor((path[i+1] - view.y + view.scale) / (2 * view.scale) * h);
+                    
+                    if (sx >= 0 && sx < w && sy >= 0 && sy < h) {
+                        let idx = sy * w + sx;
+                        let d = i / 2;
+                        
+                        expB[idx] += 1; 
+                        if(expB[idx] > maxB) maxB = expB[idx];
+                        if (d > 200) { expG[idx] += 1.5; if(expG[idx] > maxG) maxG = expG[idx]; }
+                        if (d > 800) { expR[idx] += 2; if(expR[idx] > maxR) maxR = expR[idx]; }
+                    }
+                }
+            }
+        }
+        totalSamples += config.speed;
+    }
+
+    function render() {
+        const img = ctx.createImageData(w, h);
+        const data = img.data;
+        const g = config.gamma;
+        const th = config.theme;
+
+        for (let i = 0; i < w * h; i++) {
+            if (expB[i] === 0) continue;
+            let r = Math.pow(expR[i] / maxR, g);
+            let g_ = Math.pow(expG[i] / maxG, g);
+            let b = Math.pow(expB[i] / maxB, g);
+            let px = i * 4;
+
+            switch(th) {
+                case 'nebula': 
+                    data[px] = r * 255 + g_ * 50; data[px+1] = g_ * 200 + b * 50; data[px+2] = b * 255 + r * 100; break;
+                case 'deepSpace': 
+                    data[px] = r * 100; data[px+1] = g_ * 150 + b * 50; data[px+2] = b * 255 + g_ * 100; break;
+                case 'supernova': 
+                    data[px] = r * 255 + g_ * 100; data[px+1] = g_ * 150 + b * 20; data[px+2] = b * 50; break;
+                case 'quasar': 
+                    data[px] = r * 150 + b * 100; data[px+1] = b * 200; data[px+2] = b * 255 + g_ * 50; break;
+                case 'galaxy': 
+                    data[px] = r * 255 + b * 50; data[px+1] = g_ * 100 + b * 150; data[px+2] = b * 255 + r * 50; break;
+                case 'andromeda': 
+                    data[px] = r * 100 + g_ * 50; data[px+1] = g_ * 255 + b * 100; data[px+2] = b * 200 + g_ * 100; break;
+                case 'fire': 
+                    data[px] = r * 255 + g_ * 200; data[px+1] = g_ * 150; data[px+2] = b * 50; break;
+                case 'rainbow': 
+                    data[px] = r * 255; data[px+1] = g_ * 255; data[px+2] = b * 255; break;
+                case 'arctic': 
+                    data[px] = r * 200 + b * 100; data[px+1] = g_ * 220 + b * 150; data[px+2] = b * 255; break;
+                case 'infrared': 
+                    data[px] = r * 255; data[px+1] = g_ * 100 + r * 50; data[px+2] = b * 50; break;
+            }
+            data[px+3] = 255;
+        }
+        ctx.putImageData(img, 0, 0);
+        document.getElementById('statPoints').innerText = Math.floor(totalSamples / 1000);
+    }
+
+    function loop() {
+        if (isSelectingJulia) {
+            render(); 
+            ctx.drawImage(previewCanvas, 0, 0, w, h); 
+        } else {
+            iterate();
+            if (++frameCounter % 3 === 0) render();
+        }
+        requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('keydown', e => {
+        let key = e.key.toLowerCase();
+        if ((key === 'j' || key === 'о') && !e.repeat) {
+            if (isJuliaMode && !isSelectingJulia) {
+                exitJulia();
+                reset();
+            } else if (!isSelectingJulia) {
+                isSelectingJulia = true;
+                document.getElementById('btn-julia').classList.add('active');
+                updateJuliaPreview();
+            }
+        }
+    });
+
+    window.addEventListener('keyup', e => {
+        let key = e.key.toLowerCase();
+        if (key === 'j' || key === 'о') {
+            finalizeJulia();
+        }
+    });
+
+    let lastDist = 0, isDrag = false, lastT = { x: 0, y: 0 }, lastMid = { x: 0, y: 0 };
+    
+    canvas.addEventListener('touchstart', e => {
+        hideMenuIfOpen(); // Скрываем меню при тапе по холсту
+        
+        if (isSelectingJulia && e.touches.length === 1) {
+            juliaC.r = ((e.touches[0].clientX / window.innerWidth) * 2 - 1) * view.scale * aspect + view.x;
+            juliaC.i = ((e.touches[0].clientY / window.innerHeight) * 2 - 1) * view.scale + view.y;
+            updateJuliaPreview();
+        } else if (!isSelectingJulia) {
+            if (e.touches.length === 1) {
+                isDrag = true; 
+                lastT = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            } else if (e.touches.length === 2) {
+                isDrag = false; 
+                lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                lastMid = {
+                    x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                    y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+                };
+            }
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', e => {
+        e.preventDefault();
+        if (isSelectingJulia && e.touches.length === 1) {
+            juliaC.r = ((e.touches[0].clientX / window.innerWidth) * 2 - 1) * view.scale * aspect + view.x;
+            juliaC.i = ((e.touches[0].clientY / window.innerHeight) * 2 - 1) * view.scale + view.y;
+            updateJuliaPreview();
+        } else if (!isSelectingJulia) {
+            if (e.touches.length === 1 && isDrag) {
+                let dx = e.touches[0].clientX - lastT.x, dy = e.touches[0].clientY - lastT.y;
+                view.x -= (dx / window.innerWidth) * (2 * view.scale * aspect);
+                view.y -= (dy / window.innerHeight) * (2 * view.scale);
+                lastT = { x: e.touches[0].clientX, y: e.touches[0].clientY }; 
+                reset();
+            } else if (e.touches.length === 2) {
+                let d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                let midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                let midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                
+                if (lastDist > 0) view.scale /= (d / lastDist);
+                lastDist = d;
+                
+                let pdx = midX - lastMid.x;
+                let pdy = midY - lastMid.y;
+                view.x -= (pdx / window.innerWidth) * (2 * view.scale * aspect);
+                view.y -= (pdy / window.innerHeight) * (2 * view.scale);
+                
+                lastMid = { x: midX, y: midY };
+                document.getElementById('statZoom').innerText = (1/view.scale).toFixed(1); 
+                reset();
+            }
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', e => {
+        if (isSelectingJulia) {
+            finalizeJulia();
+        } else {
+            isDrag = false;
+            lastDist = 0;
+        }
+    });
+
+    canvas.onmousedown = e => {
+        hideMenuIfOpen(); // Скрываем меню при клике мыши по холсту
+        
+        if (isSelectingJulia) {
+            juliaC.r = ((e.clientX / window.innerWidth) * 2 - 1) * view.scale * aspect + view.x;
+            juliaC.i = ((e.clientY / window.innerHeight) * 2 - 1) * view.scale + view.y;
+            updateJuliaPreview();
+        } else {
+            isDrag = true; lastT = { x: e.clientX, y: e.clientY };
+        }
+    };
+    
+    window.onmouseup = e => {
+        isDrag = false;
+        if (isSelectingJulia && e.target === canvas) {
+            finalizeJulia();
+        }
+    };
+
+    window.onmousemove = e => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+
+        if (isSelectingJulia) {
+            juliaC.r = ((mouseX / window.innerWidth) * 2 - 1) * view.scale * aspect + view.x;
+            juliaC.i = ((mouseY / window.innerHeight) * 2 - 1) * view.scale + view.y;
+            updateJuliaPreview();
+        } else if (isDrag) {
+            let dx = mouseX - lastT.x;
+            let dy = mouseY - lastT.y;
+            view.x -= (dx / window.innerWidth) * (2 * view.scale * aspect);
+            view.y -= (dy / window.innerHeight) * (2 * view.scale);
+            lastT = { x: mouseX, y: mouseY }; 
+            reset();
+        }
+    };
+
+    canvas.onwheel = e => {
+        e.preventDefault(); view.scale *= e.deltaY > 0 ? 1.1 : 0.9;
+        document.getElementById('statZoom').innerText = (1/view.scale).toFixed(1); reset();
+    };
+
+    document.getElementById('quality').onchange = e => { config.quality = e.target.value; init(); };
+    document.getElementById('mode').onchange = e => { config.mode = e.target.value; reset(); };
+    document.getElementById('theme').onchange = e => { config.theme = e.target.value; render(); };
+    document.getElementById('maxIter').oninput = e => {
+        config.maxIter = +e.target.value; document.getElementById('iterVal').innerText = e.target.value; reset();
+    };
+    document.getElementById('gamma').oninput = e => {
+        config.gamma = +e.target.value; document.getElementById('gammaVal').innerText = e.target.value;
+    };
+
+    window.onresize = init;
+    init(); loop();
+</script>
+</body>
+</html>

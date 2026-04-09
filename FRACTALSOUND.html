@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Фрактальный Исследователь Звука</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: #000; font-family: 'Segoe UI', Roboto, sans-serif;
+            user-select: none; touch-action: none;
+        }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #uiCanvas { z-index: 10; }
+        
+        /* КНОПКИ УПРАВЛЕНИЯ */
+        .floating-btn {
+            position: absolute; z-index: 30;
+            background: rgba(25, 25, 30, 0.9); color: white; 
+            border-radius: 8px; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px); transition: 0.2s;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            height: 42px; width: 42px; box-sizing: border-box;
+        }
+        .floating-btn:hover { background: #333; }
+        .floating-btn:active, .floating-btn.active { background: #0066ff; border-color: #0066ff; }
+
+        #menu-toggle { top: 10px; left: 10px; font-size: 22px; }
+        #main-play-btn { top: 10px; left: 60px; }
+        #julia-btn { top: 10px; left: 110px; font-weight: bold; font-size: 16px; }
+        #scan-grab-btn { top: 10px; left: 160px; font-size: 22px; display: none; }
+
+        /* ГЕОМЕТРИЧЕСКИЕ ИКОНКИ (CSS) */
+        .icon-play {
+            width: 0; height: 0;
+            border-top: 7px solid transparent;
+            border-bottom: 7px solid transparent;
+            border-left: 11px solid white;
+            margin-left: 3px;
+        }
+        .icon-pause { display: flex; gap: 4px; }
+        .icon-pause span { width: 3px; height: 14px; background: white; border-radius: 1px; }
+
+        /* МЕНЮ */
+        #sidebar {
+            position: absolute; top: 62px; left: 10px; z-index: 20; width: 240px;
+            background: rgba(15, 15, 20, 0.98); color: white; padding: 15px;
+            border-radius: 12px; backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            max-height: 85vh; overflow-y: auto;
+        }
+        #sidebar.hidden { transform: translateX(-120%); opacity: 0; pointer-events: none; }
+        
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        #lock-btn { cursor: pointer; font-size: 18px; padding: 4px; line-height: 1; transition: 0.2s; opacity: 0.6; }
+        #lock-btn:hover { opacity: 1; }
+
+        h1 { margin: 0; font-size: 16px; letter-spacing: 0.5px; }
+        .set-indicator { color: #0066ff; font-weight: bold; font-size: 11px; margin-bottom: 12px; display: block; }
+        
+        .section-title { font-size: 9px; color: #444; margin: 10px 0 6px 0; font-weight: bold; border-bottom: 1px solid #222; padding-bottom: 2px; text-transform: uppercase; }
+        .mode-btn { display: block; width: 100%; text-align: left; background: #222; color: #999; border: 1px solid #333; padding: 10px; margin-bottom: 4px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+        .mode-btn.active { background: #0066ff; color: white; border-color: #0066ff; }
+        #desc { margin: 8px 0; font-size: 11px; color: #777; line-height: 1.3; min-height: 30px; }
+
+        .setting-row { margin-bottom: 10px; }
+        .setting-row label { display: block; font-size: 10px; color: #666; margin-bottom: 4px; text-transform: uppercase; }
+        
+        select {
+            width: 100%; background: #25252b; color: #eee; border: 1px solid #3d3d45;
+            padding: 8px; border-radius: 6px; outline: none; font-size: 12px; appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 10px center;
+        }
+        input[type=range] { width: 100%; height: 3px; background: #333; border-radius: 2px; outline: none; accent-color: #0066ff; }
+
+        #play-btn { width: 100%; background: #fff; color: #000; border: none; padding: 12px; font-size: 13px; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 10px; }
+        #play-btn.stop { background: #ff3333; color: white; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+    <canvas id="glCanvas"></canvas>
+    <canvas id="uiCanvas"></canvas>
+    
+    <div id="menu-toggle" class="floating-btn">⚙</div>
+    <div id="main-play-btn" class="floating-btn"><div id="play-icon" class="icon-play"></div></div>
+    <div id="julia-btn" class="floating-btn">J</div>
+    <div id="scan-grab-btn" class="floating-btn">↔</div>
+
+    <div id="sidebar" class="hidden">
+        <div class="sidebar-header">
+            <h1>Параметры</h1>
+            <div id="lock-btn">🔓</div>
+        </div>
+        <span id="set-name" class="set-indicator">Множество Мандельброта</span>
+
+        <button class="mode-btn active" data-mode="true_osc">Прямой осциллограф</button>
+        <button class="mode-btn" data-mode="wave">Волновой синтез</button>
+        <button class="mode-btn" data-mode="arp">Мелодия орбиты</button>
+        <button class="mode-btn" data-mode="scan">Линейный сканер</button>
+        <button class="mode-btn" data-mode="amb">Цветовая симфония</button>
+        
+        <div id="desc">...</div>
+        <div class="section-title">Движок</div>
+        <div id="point-mode-row" class="setting-row"><label>Привязка точки</label><select id="point-mode"><option value="center">По центру</option><option value="mouse">Клик</option></select></div>
+        <div id="scan-style-row" class="setting-row"><label>Тип сканирования</label><select id="scan-style"><option value="continuous">Потоковый</option><option value="rhythmic">Ритмичный</option></select></div>
+        <div id="waveform-row" class="setting-row"><label>Форма волны</label><select id="waveform-mode"><option value="sine">Синусоида</option><option value="triangle">Треугольник</option><option value="sawtooth">Пила</option><option value="square">Квадрат</option></select></div>
+        <div id="smooth-row" class="setting-row"><label>Плавность</label><input type="range" id="smooth-slider" min="0" max="100" value="20"></div>
+        <div id="speed-row" class="setting-row"><label>Скорость</label><input type="range" id="speed-slider" min="0" max="100" value="50"></div>
+        <div class="section-title">Мастер</div>
+        <div class="setting-row"><label>Срез частот</label><input type="range" id="filter-slider" min="300" max="15000" value="3000"></div>
+        <div class="setting-row"><label>Громкость</label><input type="range" id="vol-slider" min="0" max="100" value="70"></div>
+        <button id="play-btn">Запустить</button>
+    </div>
+
+    <script>
+        const glCanvas = document.getElementById('glCanvas');
+        const uiCanvas = document.getElementById('uiCanvas');
+        const gl = glCanvas.getContext('webgl');
+        const uiCtx = uiCanvas.getContext('2d');
+
+        let width, height, zoom = 200, targetZoom = 200, panX = 0, panY = 0, targetPanX = 0, targetPanY = 0;
+        let mouseX = 0, mouseY = 0, pinnedCx = 0, pinnedCy = 0, scanCx = -2.0;
+        let isJuliaMode = false, isPickingJulia = false, isManualScanMode = false, juliaC = { re: 0, im: 0 }, isLocked = false;
+
+        const sidebar = document.getElementById('sidebar');
+        const lockBtn = document.getElementById('lock-btn');
+        const juliaBtn = document.getElementById('julia-btn');
+        const mainPlayBtn = document.getElementById('main-play-btn');
+        const playIcon = document.getElementById('play-icon');
+        const scanGrabBtn = document.getElementById('scan-grab-btn');
+        
+        document.getElementById('menu-toggle').onclick = (e) => { e.stopPropagation(); sidebar.classList.toggle('hidden'); };
+
+        lockBtn.onclick = () => {
+            isLocked = !isLocked;
+            lockBtn.innerHTML = isLocked ? '🔒' : '🔓';
+        };
+
+        window.addEventListener('mousedown', (e) => {
+            if (!isLocked && !sidebar.classList.contains('hidden') && !sidebar.contains(e.target) && !e.target.closest('.floating-btn')) {
+                sidebar.classList.add('hidden');
+            }
+        });
+
+        mainPlayBtn.onclick = () => document.getElementById('play-btn').click();
+
+        juliaBtn.onclick = (e) => {
+            e.preventDefault();
+            if (isJuliaMode) { isJuliaMode = false; isPickingJulia = false; document.getElementById('set-name').innerText = "Множество Мандельброта"; juliaBtn.classList.remove('active'); if(isPlaying) startCurrentMode(); } 
+            else { isPickingJulia = !isPickingJulia; if (isPickingJulia) juliaBtn.classList.add('active'); else juliaBtn.classList.remove('active'); }
+        };
+
+        scanGrabBtn.onclick = (e) => { e.preventDefault(); isManualScanMode = !isManualScanMode; if (isManualScanMode) scanGrabBtn.classList.add('active'); else scanGrabBtn.classList.remove('active'); };
+
+        const modesDesc = { 'true_osc': "Прямая трансляция орбиты в аудиосигнал.", 'wave': "Координаты Z используются как таблица волны.", 'arp': "Точки орбиты воспроизводятся по очереди.", 'scan': "Линия считывает цвета и преобразует их в гармоники.", 'amb': "Суммарный резонанс всех цветов на экране." };
+        let audioCtx = null, isPlaying = false, currentMode = 'true_osc', masterGain = null, masterFilter = null, modeAudioData = {}, scanTimerId = null;
+        let audioParams = { pointMode: 'center', scanStyle: 'continuous', waveform: 'sine', ambSmooth: 20, speed: 50, filter: 3000, volume: 0.7 };
+
+        function getTargetCoord() { if (audioParams.pointMode === 'mouse') return { x: pinnedCx * zoom + panX, y: pinnedCy * zoom + panY, cx: pinnedCx, cy: pinnedCy }; return { x: width / 2, y: height / 2, cx: (width/2 - panX)/zoom, cy: (height/2 - panY)/zoom }; }
+        function getIterData(px, py, maxIter) { let cx, cy, zx, zy; if (isJuliaMode || isPickingJulia) { zx = px; zy = py; cx = juliaC.re; cy = juliaC.im; } else { zx = 0; zy = 0; cx = px; cy = py; }
+            let iter = 0; while(zx*zx + zy*zy < 4.0 && iter < maxIter) { let tmp = zx*zx - zy*zy + cx; zy = 2.0*zx*zy + cy; zx = tmp; iter++; } return { iter, zx, zy }; }
+
+        function updateSettingsVisibility() {
+            document.getElementById('point-mode-row').style.display = (['true_osc', 'wave', 'arp'].includes(currentMode)) ? 'block' : 'none';
+            document.getElementById('scan-style-row').style.display = (currentMode === 'scan') ? 'block' : 'none';
+            document.getElementById('waveform-row').style.display = (['wave', 'arp', 'scan', 'amb'].includes(currentMode)) ? 'block' : 'none';
+            document.getElementById('smooth-row').style.display = (currentMode === 'amb') ? 'block' : 'none';
+            document.getElementById('speed-row').style.display = (['true_osc', 'wave', 'arp', 'scan'].includes(currentMode)) ? 'block' : 'none';
+            document.getElementById('desc').innerText = modesDesc[currentMode];
+            scanGrabBtn.style.display = (currentMode === 'scan') ? 'flex' : 'none';
+        }
+
+        document.getElementById('point-mode').onchange = e => { audioParams.pointMode = e.target.value; if (e.target.value === 'mouse') { pinnedCx = (width/2 - panX)/zoom; pinnedCy = (height/2 - panY)/zoom; } };
+        document.getElementById('scan-style').onchange = e => { audioParams.scanStyle = e.target.value; if(isPlaying) startCurrentMode(); };
+        document.getElementById('waveform-mode').onchange = e => { audioParams.waveform = e.target.value; if((currentMode === 'amb' || currentMode === 'scan' || currentMode === 'wave') && modeAudioData.oscillators) modeAudioData.oscillators.forEach(o => o.type = audioParams.waveform); };
+        document.getElementById('smooth-slider').oninput = e => audioParams.ambSmooth = parseInt(e.target.value);
+        document.getElementById('speed-slider').oninput = e => audioParams.speed = parseInt(e.target.value);
+        document.getElementById('filter-slider').oninput = e => { audioParams.filter = parseInt(e.target.value); if(masterFilter) masterFilter.frequency.value = audioParams.filter; };
+        document.getElementById('vol-slider').oninput = e => { audioParams.volume = parseInt(e.target.value)/100; if(masterGain) masterGain.gain.value = audioParams.volume; };
+
+        function initWebGL() {
+            const vsSource = `attribute vec2 a_pos; void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }`;
+            const fsSource = `precision highp float; uniform vec2 u_res; uniform vec2 u_pan; uniform float u_zoom; uniform int u_maxIter;
+                uniform int u_isJulia; uniform vec2 u_juliaC; uniform float u_alpha;
+                vec3 hsl2rgb(vec3 c) { vec3 rgb = clamp(abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0); return c.z + c.y * (rgb-0.5)*(1.0-abs(2.0*c.z-1.0)); }
+                void main() { vec2 coord = vec2(gl_FragCoord.x, u_res.y - gl_FragCoord.y); float px = (coord.x - u_pan.x) / u_zoom; float py = (coord.y - u_pan.y) / u_zoom;
+                    float zx, zy, cx, cy; if(u_isJulia == 1) { zx = px; zy = py; cx = u_juliaC.x; cy = u_juliaC.y; } else { zx = 0.0; zy = 0.0; cx = px; cy = py; }
+                    int iter = 0; for(int i=0; i<1000; i++) { if(i >= u_maxIter) break; float tmp = zx*zx - zy*zy + cx; zy = 2.0*zx*zy + cy; zx = tmp; if(zx*zx + zy*zy > 4.0) break; iter++; }
+                    if(iter >= u_maxIter) gl_FragColor = vec4(0.0, 0.0, 0.0, u_alpha); else { float nu = log2(log2(zx*zx + zy*zy) / 2.0); float smoothIter = float(iter) + 1.0 - nu; gl_FragColor = vec4(hsl2rgb(vec3(smoothIter/40.0, 1.0, 0.5)), u_alpha); } }`;
+            const vs = gl.createShader(gl.VERTEX_SHADER); gl.shaderSource(vs, vsSource); gl.compileShader(vs);
+            const fs = gl.createShader(gl.FRAGMENT_SHADER); gl.shaderSource(fs, fsSource); gl.compileShader(fs);
+            const prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+            const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+            let pos = gl.getAttribLocation(prog, "a_pos"); gl.enableVertexAttribArray(pos); gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+            return { prog, u_res: gl.getUniformLocation(prog, "u_res"), u_pan: gl.getUniformLocation(prog, "u_pan"), u_zoom: gl.getUniformLocation(prog, "u_zoom"), u_maxIter: gl.getUniformLocation(prog, "u_maxIter"), u_isJulia: gl.getUniformLocation(prog, "u_isJulia"), u_juliaC: gl.getUniformLocation(prog, "u_juliaC"), u_alpha: gl.getUniformLocation(prog, "u_alpha") };
+        }
+        const glInfo = initWebGL();
+        function stopAllAudio() { if(audioCtx) { if(modeAudioData.processor) modeAudioData.processor.disconnect(); if(modeAudioData.oscillators) modeAudioData.oscillators.forEach(o => { try{o.stop();}catch(e){} o.disconnect(); }); if(modeAudioData.interval) clearInterval(modeAudioData.interval); if(scanTimerId) clearTimeout(scanTimerId); modeAudioData = {}; } }
+
+        let trueOscZ = {x: 0, y: 0}, trueOscHistory = new Float32Array(512), trueOscHistoryIdx = 0, lastPoint = {cx:0, cy:0}, trueOscEscaped = false;
+        function initTrueOscMode() {
+            modeAudioData.processor = audioCtx.createScriptProcessor(2048, 0, 2); let sampleCounter = 0;
+            modeAudioData.processor.onaudioprocess = e => {
+                let outL = e.outputBuffer.getChannelData(0), outR = e.outputBuffer.getChannelData(1), tc = getTargetCoord();
+                let cx = (isJuliaMode || isPickingJulia) ? juliaC.re : tc.cx, cy = (isJuliaMode || isPickingJulia) ? juliaC.im : tc.cy;
+                if (Math.abs(tc.cx - lastPoint.cx) > 1e-9 || Math.abs(tc.cy - lastPoint.cy) > 1e-9) { lastPoint.cx = tc.cx; lastPoint.cy = tc.cy; trueOscZ = (isJuliaMode||isPickingJulia) ? {x: tc.cx, y: tc.cy} : {x: 0, y: 0}; trueOscEscaped = false; for(let k=0; k<512; k++) trueOscHistory[k] = 0; }
+                let speedMod = Math.max(1, Math.floor(40 * Math.pow(1 - audioParams.speed/100, 2)));
+                for (let i = 0; i < 2048; i++) {
+                    if (trueOscEscaped) { outL[i] = outR[i] = 0; continue; }
+                    if (sampleCounter++ % speedMod === 0) { let tmp = trueOscZ.x*trueOscZ.x - trueOscZ.y*trueOscZ.y + cx; trueOscZ.y = 2*trueOscZ.x*trueOscZ.y + cy; trueOscZ.x = tmp; if (trueOscZ.x*trueOscZ.x + trueOscZ.y*trueOscZ.y > 4.0) trueOscEscaped = true; }
+                    outL[i] = trueOscZ.x * 0.3; outR[i] = trueOscZ.y * 0.3;
+                    if (i % speedMod === 0 && !trueOscEscaped) { trueOscHistory[trueOscHistoryIdx++] = trueOscZ.x; trueOscHistory[trueOscHistoryIdx++] = trueOscZ.y; if (trueOscHistoryIdx >= 512) trueOscHistoryIdx = 0; }
+                }
+            };
+            modeAudioData.processor.connect(masterGain);
+        }
+        let currentOrbitWave = new Float32Array(512);
+        function initWaveMode() {
+            modeAudioData.processor = audioCtx.createScriptProcessor(2048, 0, 1); let phase = 0;
+            modeAudioData.processor.onaudioprocess = e => {
+                let out = e.outputBuffer.getChannelData(0), freq = 65.41 * Math.pow(2, (audioParams.speed - 50)/25), pStep = (freq/audioCtx.sampleRate)*512;
+                for (let i = 0; i < 2048; i++) { let ov = currentOrbitWave[Math.floor(phase)], fv = ov; if (audioParams.waveform === 'square') fv = ov > 0 ? 0.4 : -0.4; else if (audioParams.waveform === 'triangle') fv = Math.abs(ov) * 2 - 1; else if (audioParams.waveform === 'sawtooth') fv = (phase/512)*ov;
+                    out[i] = fv * 0.5; phase = (phase + pStep) % 512; }
+            };
+            modeAudioData.processor.connect(masterGain);
+        }
+        const scaleFreqs =[261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00];
+        let arpOrbit =[], arpStep = 0;
+        function initArpMode() {
+            modeAudioData.nextTime = audioCtx.currentTime;
+            modeAudioData.interval = setInterval(() => { if (!isPlaying || arpOrbit.length === 0) return;
+                let sTime = 0.15 * Math.max(0.1, (100 - audioParams.speed)/25);
+                while (modeAudioData.nextTime < audioCtx.currentTime + 0.1) {
+                    let pt = arpOrbit[arpStep % arpOrbit.length], osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+                    osc.type = audioParams.waveform; osc.frequency.value = scaleFreqs[Math.floor(Math.abs(pt.x * 10)) % 10];
+                    g.gain.setValueAtTime(0, modeAudioData.nextTime); g.gain.linearRampToValueAtTime(0.2, modeAudioData.nextTime + sTime*0.3); g.gain.exponentialRampToValueAtTime(0.001, modeAudioData.nextTime + sTime*3);
+                    osc.connect(g); g.connect(masterGain); osc.start(modeAudioData.nextTime); osc.stop(modeAudioData.nextTime + sTime*3);
+                    arpStep++; modeAudioData.nextTime += sTime; }
+            }, 25);
+        }
+        function initScanMode() {
+            if(audioParams.scanStyle === 'continuous') {
+                modeAudioData.oscillators =[]; modeAudioData.gains =[];
+                for(let i=0; i<10; i++){ let o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = audioParams.waveform; o.frequency.value = scaleFreqs[i]; g.gain.value = 0; o.connect(g); g.connect(masterGain); o.start(); modeAudioData.oscillators.push(o); modeAudioData.gains.push(g); }
+                modeAudioData.interval = setInterval(() => { if(!isPlaying) return; let bins = new Array(10).fill(0); for(let i=1; i<=6; i++){ let py = ((i/7)*height - panY)/zoom; let d = getIterData(scanCx, py, 100); if(d.iter>0 && d.iter<100) bins[d.iter%10]++; }
+                for(let i=0; i<10; i++) modeAudioData.gains[i].gain.setTargetAtTime((bins[i]/6)*0.3, audioCtx.currentTime, 0.1); }, 50);
+            } else {
+                const loop = () => { if(currentMode!=='scan' || !isPlaying || audioParams.scanStyle!=='rhythmic') return; let bins=new Array(10).fill(0); for(let i=1; i<=6; i++){ let py=((i/7)*height-panY)/zoom; let d = getIterData(scanCx, py, 100); if(d.iter>0 && d.iter<100) bins[d.iter%10]++; }
+                for(let i=0; i<10; i++){ if(bins[i]>0){ let o=audioCtx.createOscillator(), g=audioCtx.createGain(); o.type=audioParams.waveform; o.frequency.value=scaleFreqs[i]; g.gain.setValueAtTime(0, audioCtx.currentTime); g.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime+0.02); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.5); o.connect(g); g.connect(masterGain); o.start(); o.stop(audioCtx.currentTime+0.5); } }
+                scanTimerId = setTimeout(loop, Math.max(50, 500 - (audioParams.speed-1)*4.5)); }; loop(); }
+        }
+        function initAmbMode() {
+            modeAudioData.oscillators =[]; modeAudioData.gains =[]; const base = 65.41, sc =[1, 9/8, 5/4, 3/2, 5/3];
+            for(let i=0; i<40; i++){ let o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = audioParams.waveform; o.frequency.value = base*Math.pow(2, Math.floor(i/5))*sc[i%5]; o.baseDetune = (Math.random()-0.5); g.gain.value = 0; o.connect(g); g.connect(masterGain); o.start(); modeAudioData.oscillators.push(o); modeAudioData.gains.push(g); }
+            modeAudioData.interval = setInterval(() => { if(!isPlaying) return; let bins = new Array(40).fill(0), grid = 40, dMax = Math.min(1000, 100+Math.floor(Math.log10(Math.max(1, zoom/200))*100)); for(let i=0; i<grid; i++){ for(let j=0; j<grid; j++){ let cx=((i/grid)*width-panX)/zoom, cy=((j/grid)*height-panY)/zoom; let d = getIterData(cx, cy, dMax); if(d.iter<dMax) bins[d.iter%40]++; } }
+            let now=audioCtx.currentTime, ch=(100-audioParams.ambSmooth)/100, tr=0.05+(1-ch)*2.5; for(let i=0; i<40; i++){ modeAudioData.gains[i].gain.setTargetAtTime(Math.sqrt(bins[i]/1600)*((0.15+ch*0.1)*Math.pow(0.7, Math.floor(i/5))), now, tr); modeAudioData.oscillators[i].detune.setTargetAtTime(modeAudioData.oscillators[i].baseDetune*(ch*40), now, tr); } }, 150);
+        }
+
+        let ambVols = new Array(40).fill(0), oscFade = 0.0;
+        function render() {
+            requestAnimationFrame(render);
+            if (!isPickingJulia && !isManualScanMode) { panX += (targetPanX - panX) * 0.15; panY += (targetPanY - panY) * 0.15; zoom += (targetZoom - zoom) * 0.15; }
+            gl.useProgram(glInfo.prog); gl.clear(gl.COLOR_BUFFER_BIT); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            let dMax = Math.min(1000, 100 + Math.floor(Math.log10(Math.max(1, zoom/200))*100));
+            gl.uniform2f(glInfo.u_res, width, height); gl.uniform2f(glInfo.u_pan, panX, panY); gl.uniform1f(glInfo.u_zoom, zoom); gl.uniform1i(glInfo.u_maxIter, dMax);
+            gl.uniform1i(glInfo.u_isJulia, isJuliaMode ? 1 : 0); gl.uniform2f(glInfo.u_juliaC, juliaC.re, juliaC.im); gl.uniform1f(glInfo.u_alpha, 1.0); gl.drawArrays(gl.TRIANGLES, 0, 6);
+            if (isPickingJulia) { gl.uniform1i(glInfo.u_isJulia, 1); gl.uniform2f(glInfo.u_juliaC, (mouseX-panX)/zoom, (mouseY-panY)/zoom); gl.uniform1f(glInfo.u_alpha, 0.5); gl.drawArrays(gl.TRIANGLES, 0, 6); }
+            uiCtx.clearRect(0, 0, width, height); let tc = getTargetCoord();
+            if (['true_osc', 'wave', 'arp'].includes(currentMode)) { uiCtx.strokeStyle='rgba(255,255,255,0.7)'; uiCtx.lineWidth = 1; uiCtx.beginPath(); uiCtx.moveTo(tc.x-10, tc.y); uiCtx.lineTo(tc.x+10, tc.y); uiCtx.moveTo(tc.x, tc.y-10); uiCtx.lineTo(tc.x, tc.y+10); uiCtx.stroke(); }
+            if (currentMode === 'true_osc') {
+                uiCtx.beginPath(); uiCtx.strokeStyle = 'rgba(255, 0, 100, 0.6)'; uiCtx.lineWidth = 1.5;
+                let tx = (isJuliaMode||isPickingJulia) ? tc.cx : 0, ty = (isJuliaMode||isPickingJulia) ? tc.cy : 0; let cx = (isJuliaMode||isPickingJulia) ? juliaC.re : tc.cx, cy = (isJuliaMode||isPickingJulia) ? juliaC.im : tc.cy;
+                uiCtx.moveTo(tx*zoom+panX, ty*zoom+panY); for(let i=0; i<64; i++){ let t=tx*tx-ty*ty+cx; ty=2*tx*ty+cy; tx=t; uiCtx.lineTo(tx*zoom+panX, ty*zoom+panY); if(tx*tx+ty*ty>100) break; } uiCtx.stroke();
+                if (isPlaying) { let sS = 160, sX = width-sS-15, sY = height-sS-15; uiCtx.fillStyle = 'rgba(0, 10, 5, 0.9)'; uiCtx.fillRect(sX, sY, sS, sS); uiCtx.strokeStyle = 'rgba(0, 255, 100, 0.3)'; uiCtx.strokeRect(sX, sY, sS, sS); uiCtx.beginPath(); uiCtx.moveTo(sX+sS/2, sY); uiCtx.lineTo(sX+sS/2, sY+sS); uiCtx.moveTo(sX, sY+sS/2); uiCtx.lineTo(sX+sS, sY+sS/2); uiCtx.stroke();
+                    uiCtx.fillStyle = 'rgba(0, 255, 204, 0.8)'; uiCtx.font = "9px monospace"; uiCtx.fillText("ОСЦИЛЛОГРАФ", sX + 5, sY + 12);
+                    if (!trueOscEscaped) { oscFade = 1.0; } else { oscFade = Math.max(0, oscFade - 0.05); }
+                    if (oscFade > 0) { uiCtx.beginPath(); uiCtx.strokeStyle = `rgba(0, 255, 204, ${oscFade})`; uiCtx.lineWidth = 1; for(let i=0; i<512; i+=2){ let px=sX+sS/2+trueOscHistory[i]*sS/4, py=sY+sS/2-trueOscHistory[i+1]*sS/4; if(i===0) uiCtx.moveTo(px,py); else uiCtx.lineTo(px,py); } uiCtx.stroke(); }
+                    if (trueOscEscaped) { uiCtx.fillStyle = `rgba(255, 51, 51, ${1.0 - oscFade})`; uiCtx.font = "10px monospace"; uiCtx.fillText("СИГНАЛ ПОТЕРЯН", sX+40, sY+75); uiCtx.fillText("(ВЗРЫВ)", sX+60, sY+90); } }
+            } else if (currentMode === 'wave') {
+                let tx = (isJuliaMode||isPickingJulia) ? tc.cx : 0, ty = (isJuliaMode||isPickingJulia) ? tc.cy : 0; let cx = (isJuliaMode||isPickingJulia) ? juliaC.re : tc.cx, cy = (isJuliaMode||isPickingJulia) ? juliaC.im : tc.cy; let mv=0.001;
+                for (let i=0; i<512; i++){ let t=tx*tx-ty*ty+cx; ty=2*tx*ty+cy; tx=t; currentOrbitWave[i]=tx; if(Math.abs(tx)>mv && Math.abs(tx)<10) mv=Math.abs(tx); if(tx*tx+ty*ty>100) break; } for(let i=0; i<512; i++) currentOrbitWave[i]/=mv;
+                uiCtx.beginPath(); uiCtx.strokeStyle = '#00FFCC'; uiCtx.lineWidth = 1.5; for (let i=0; i<512; i++){ let px=tc.x+(i-256)*0.5, py=tc.y-currentOrbitWave[i]*50; if(i===0) uiCtx.moveTo(px,py); else uiCtx.lineTo(px,py); } uiCtx.stroke();
+            } else if (currentMode === 'arp') {
+                let tx=(isJuliaMode||isPickingJulia)?tc.cx:0, ty=(isJuliaMode||isPickingJulia)?tc.cy:0; let cx=(isJuliaMode||isPickingJulia)?juliaC.re:tc.cx, cy=(isJuliaMode||isPickingJulia)?juliaC.im:tc.cy; arpOrbit=[{x:tx, y:ty}]; for(let i=0; i<32; i++){ let t=tx*tx-ty*ty+cx; ty=2*tx*ty+cy; tx=t; arpOrbit.push({x:tx, y:ty}); if(tx*tx+ty*ty>10) break; }
+                uiCtx.beginPath(); uiCtx.strokeStyle = 'rgba(255, 200, 50, 0.4)'; uiCtx.lineWidth = 1.5; arpOrbit.forEach((p, i) => { if(i===0) uiCtx.moveTo(p.x*zoom+panX, p.y*zoom+panY); else uiCtx.lineTo(p.x*zoom+panX, p.y*zoom+panY); }); uiCtx.stroke();
+                if(isPlaying){ let p = arpOrbit[arpStep % arpOrbit.length]; if(p){ uiCtx.beginPath(); uiCtx.arc(p.x*zoom+panX, p.y*zoom+panY, 6, 0, 7); uiCtx.fillStyle = '#FFF'; uiCtx.fill(); } }
+            } else if (currentMode === 'scan' && isPlaying) {
+                if (!isManualScanMode) { scanCx += Math.pow(audioParams.speed/100, 3) * (10/zoom); if(scanCx > (width-panX)/zoom) scanCx = (-panX)/zoom; uiCtx.strokeStyle = "rgba(255, 255, 255, 0.8)"; } else { uiCtx.strokeStyle = "#f33"; }
+                let sX = scanCx * zoom + panX; uiCtx.beginPath(); uiCtx.moveTo(sX, 0); uiCtx.lineTo(sX, height); uiCtx.lineWidth = 2; uiCtx.stroke();
+            } else if (currentMode === 'amb' && isPlaying) {
+                let bw = width/40; for (let i=0; i<40; i++) { let binVal = 0; if(modeAudioData.gains && modeAudioData.gains[i]) binVal = modeAudioData.gains[i].gain.value;
+                ambVols[i] += (binVal - ambVols[i]) * 0.1; let h = (ambVols[i]/(0.2*Math.pow(0.7, Math.floor(i/5))))*(height*0.25); uiCtx.fillStyle=`hsla(${(i/40)*360},100%,50%,0.6)`; uiCtx.fillRect(i*bw, height-h, bw-1, h); } }
+        }
+        requestAnimationFrame(render);
+
+        const pBtn = document.getElementById('play-btn');
+        pBtn.onclick = () => {
+            if (!audioCtx) { audioCtx = new AudioContext(); masterGain = audioCtx.createGain(); masterGain.gain.value = audioParams.volume; masterFilter = audioCtx.createBiquadFilter(); masterFilter.type = 'lowpass'; masterFilter.frequency.value = audioParams.filter; masterGain.connect(masterFilter); masterFilter.connect(audioCtx.destination); }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (!isPlaying) { isPlaying = true; pBtn.innerText = "Остановить"; pBtn.className = "stop"; mainPlayBtn.classList.add('active'); mainPlayBtn.innerHTML = '<div class="icon-pause"><span></span><span></span></div>'; startCurrentMode(); } 
+            else { isPlaying = false; pBtn.innerText = "Запустить"; pBtn.className = ""; mainPlayBtn.classList.remove('active'); mainPlayBtn.innerHTML = '<div class="icon-play"></div>'; stopAllAudio(); }
+        };
+
+        function startCurrentMode() { stopAllAudio(); if(!isPlaying || !audioCtx) return; updateSettingsVisibility(); if(currentMode==='true_osc') initTrueOscMode(); if(currentMode==='wave') initWaveMode(); if(currentMode==='arp') initArpMode(); if(currentMode==='scan') initScanMode(); if(currentMode==='amb') initAmbMode(); }
+        document.querySelectorAll('.mode-btn').forEach(b => b.onclick = e => { document.querySelectorAll('.mode-btn').forEach(x => x.classList.remove('active')); e.target.classList.add('active'); currentMode = e.target.dataset.mode; updateSettingsVisibility(); if(isPlaying) startCurrentMode(); });
+        
+        window.onkeydown = e => { if(e.code === 'Space'){ e.preventDefault(); pBtn.click(); } if(e.code === 'KeyJ' && !e.repeat) { juliaBtn.click(); } };
+
+        let isDragging = false, clickX, clickY, lastDX, lastDY, lastDist = 0;
+        uiCanvas.oncontextmenu = e => e.preventDefault();
+        const handleStart = (x, y, button) => { if (isPickingJulia) { juliaC = { re: (x - panX) / zoom, im: (y - panY) / zoom }; return; } if (isManualScanMode) { scanCx = (x - panX) / zoom; return; } if (button === 0) { isDragging = true; clickX = lastDX = x; clickY = lastDY = y; } };
+        const handleMove = (x, y) => { mouseX = x; mouseY = y; if (isPickingJulia) { juliaC = { re: (x - panX) / zoom, im: (y - panY) / zoom }; return; } if (isManualScanMode) { scanCx = (x - panX) / zoom; return; } if (isDragging) { targetPanX += x - lastDX; targetPanY += y - lastDY; lastDX = x; lastDY = y; } };
+        const handleEnd = (button) => { if (isPickingJulia) { isPickingJulia = false; isJuliaMode = true; document.getElementById('set-name').innerText = "Множество Жюлиа"; if(isPlaying) startCurrentMode(); return; } if (button === 0 && isDragging) { isDragging = false; if (Math.hypot(lastDX - clickX, lastDY - clickY) < 5 && audioParams.pointMode === 'mouse') { pinnedCx = (clickX - panX) / zoom; pinnedCy = (clickY - panY) / zoom; if(isPlaying) startCurrentMode(); } } };
+
+        window.onmousedown = e => { if(e.target===uiCanvas) handleStart(e.clientX, e.clientY, e.button); };
+        window.onmousemove = e => handleMove(e.clientX, e.clientY);
+        window.onmouseup = e => handleEnd(e.button);
+
+        uiCanvas.addEventListener('touchstart', e => { if(e.touches.length === 1) handleStart(e.touches[0].clientX, e.touches[0].clientY, 0); else if(e.touches.length === 2) { isDragging = false; lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); } });
+        uiCanvas.addEventListener('touchmove', e => { e.preventDefault(); if(e.touches.length === 1) handleMove(e.touches[0].clientX, e.touches[0].clientY); else if(e.touches.length === 2) { let d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); let midX = (e.touches[0].clientX + e.touches[1].clientX) / 2, midY = (e.touches[0].clientY + e.touches[1].clientY) / 2; let ratio = d / lastDist; targetPanX = midX - (midX - targetPanX) * ratio; targetPanY = midY - (midY - targetPanY) * ratio; targetZoom *= ratio; lastDist = d; } }, {passive: false});
+        uiCanvas.addEventListener('touchend', e => handleEnd(0));
+
+        window.onwheel = e => { if(e.target!==uiCanvas)return; e.preventDefault(); let z=1.2; if(e.deltaY<0){ targetPanX=e.clientX-(e.clientX-targetPanX)*z; targetPanY=e.clientY-(e.clientY-targetPanY)*z; targetZoom*=z; } else { targetPanX=e.clientX-(e.clientX-targetPanX)/z; targetPanY=e.clientY-(e.clientY-targetPanY)/z; targetZoom/=z; } };
+        window.onresize = () => { width=window.innerWidth; height=window.innerHeight; glCanvas.width=uiCanvas.width=width; glCanvas.height=uiCanvas.height=height; gl.viewport(0,0,width,height); if(panX===0){ zoom=targetZoom=height/2.5; panX=targetPanX=width/2+zoom*0.5; panY=targetPanY=height/2; pinnedCx=(width/2-panX)/zoom; pinnedCy=(height/2-panY)/zoom; } updateSettingsVisibility(); };
+        window.onresize();
+    </script>
+</body>
+</html>

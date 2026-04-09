@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Fractal Explorer Ultra HD</title>
+    <style>
+        :root {
+            --bg-color: #050505; 
+            --panel-color: #0d0d0d;
+            --accent-color: #4a90e2;
+            --text-color: #cccccc;
+            --border-color: #222222;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            overflow-x: hidden;
+            overscroll-behavior-y: none; /* Блокируем скролл-обновление страницы на мобилках */
+        }
+
+        .side-panel::-webkit-scrollbar { width: 4px; }
+        .side-panel::-webkit-scrollbar-track { background: var(--panel-color); }
+        .side-panel::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        .side-panel::-webkit-scrollbar-thumb:hover { background: var(--accent-color); }
+
+        .main-layout {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            height: 95vh;
+            width: 100%;
+            max-width: 1400px;
+            box-sizing: border-box;
+        }
+
+        #menuToggle {
+            display: none;
+            background: var(--panel-color);
+            color: var(--accent-color);
+            border: 1px solid var(--border-color);
+            padding: 12px 20px;
+            border-radius: 8px;
+            width: 100%;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .canvas-container {
+            position: relative;
+            flex-grow: 1;
+            background: #050505;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            aspect-ratio: 1 / 1;
+            max-width: 800px;
+            max-height: 800px;
+            margin: 0 auto;
+        }
+
+        #glCanvas, #paintCanvas, #uiCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            touch-action: none; 
+        }
+
+        #uiCanvas { cursor: crosshair; }
+        #paintCanvas { pointer-events: none; }
+
+        .side-panel {
+            width: 340px;
+            min-width: 340px;
+            background: var(--panel-color);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+            z-index: 10;
+            box-sizing: border-box;
+        }
+
+        h1 { margin: 0; font-size: 20px; color: var(--text-color); font-weight: 600; letter-spacing: 0.5px; }
+        h3 { margin: 0; font-size: 14px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+
+        .control-group { display: flex; flex-direction: column; gap: 8px; }
+
+        details { background: #0a0a0a; border-radius: 6px; padding: 10px; border: 1px solid var(--border-color); }
+        summary { cursor: pointer; font-weight: normal; font-size: 14px; color: var(--accent-color); outline: none; }
+
+        .info-box {
+            background: #000; padding: 12px; border-radius: 6px; border-left: 2px solid var(--accent-color);
+            font-family: 'Courier New', monospace; font-size: 13px;
+        }
+
+        button {
+            background: #111; border: 1px solid var(--border-color); color: var(--text-color); padding: 10px;
+            border-radius: 4px; cursor: pointer; font-size: 13px; transition: 0.2s;
+        }
+        button:hover { background: #1a1a1a; }
+        button.active { background: #1a1a1a; color: var(--accent-color); border-color: var(--accent-color); }
+        button.toggle-active { border-left: 2px solid #55ff55; }
+        button.toggle-inactive { border-left: 2px solid #ff5555; opacity: 0.6; }
+        #btnAnimate.animating { border-color: #ce4b4b; color: #ce4b4b; }
+
+        label { font-size: 12px; color: #777; display: flex; justify-content: space-between; margin-top: 5px; }
+        input[type="range"] { width: 100%; accent-color: var(--accent-color); }
+
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; display: inline-block; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        .stable { background: rgba(46, 125, 50, 0.2); color: #55ff55; border: 1px solid rgba(85, 255, 85, 0.3); }
+        .escaping { background: rgba(198, 40, 40, 0.2); color: #ff5555; border: 1px solid rgba(255, 85, 85, 0.3); }
+
+        @media (max-width: 900px) {
+            body { height: auto; display: block; }
+            .main-layout { flex-direction: column; height: auto; padding: 15px; }
+            #menuToggle { display: block; }
+            .side-panel {
+                display: none; 
+                position: fixed;
+                top: 70px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 90%;
+                max-width: 400px;
+                max-height: 80vh;
+                box-shadow: 0 20px 50px rgba(0,0,0,0.9);
+                border: 1px solid #333;
+                background: rgba(10, 10, 10, 0.95);
+                backdrop-filter: blur(10px);
+            }
+            .side-panel.open { display: flex; }
+            .canvas-container { max-width: 100%; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-layout">
+        <button id="menuToggle">≡ Настройки</button>
+
+        <div class="side-panel" id="sidePanel">
+            <h1>Fractal Explorer</h1>
+            
+            <div class="control-group">
+                <h3>Режим визуализации</h3>
+                <button id="btnNone" class="active">Без фрактала</button>
+                <button id="btnJulia">Множество Жюлиа</button>
+                <button id="btnMandel">Множество Мандельброта</button>
+            </div>
+
+            <div class="control-group">
+                <h3>Видимость элементов</h3>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <button id="toggleC" class="toggle-active">Точка C</button>
+                    <button id="toggleZ" class="toggle-active">Точка Z₀</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>Координаты</h3>
+                <div class="info-box">
+                    <span style="color:#ff5555">C:</span> <span id="valC">0</span><br>
+                    <span style="color:#55ff55">Z₀:</span> <span id="valZ">0</span><br>
+                    <div id="status" class="status-badge">Статус</div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>Графика (GPU)</h3>
+                <label>Непрозрачность: <b id="valOpacity" style="color:var(--text-color)">100%</b></label>
+                <input type="range" id="opacityRange" min="0" max="100" value="100">
+
+                <label>Итераций орбиты: <b id="lblIter">150</b></label>
+                <input type="range" id="iterRange" min="0" max="300" step="1" value="150">
+                
+                <label>Яркость фона</label>
+                <input type="range" id="brightRange" min="10" max="100" value="50">
+
+                <label>След от орбиты (Кисть): <span id="valBrush" style="color:#55ff55; font-weight:bold;">0 (Выкл)</span></label>
+                <input type="range" id="brushRange" min="0" max="25" step="1" value="0">
+            </div>
+
+            <details>
+                <summary>Настройки анимации C</summary>
+                <div class="control-group" style="margin-top:10px;">
+                    <button id="btnAnimate">Запустить спираль</button>
+                    <label>Скорость <span id="valAnimSpeed">1.0</span></label>
+                    <input type="range" id="animSpeed" min="0.1" max="5" step="0.1" value="1">
+                    <label>Радиус <span id="valAnimRadius">1.0</span></label>
+                    <input type="range" id="animRadius" min="0.1" max="2" step="0.1" value="1">
+                    <label>Плотность <span id="valAnimTight">0.1</span></label>
+                    <input type="range" id="animTight" min="0.01" max="0.5" step="0.01" value="0.1">
+                    <label>Центр X <span id="valCenterX">0.0</span></label>
+                    <input type="range" id="centerX" min="-1.5" max="1.5" step="0.1" value="0">
+                    <label>Центр Y <span id="valCenterY">0.0</span></label>
+                    <input type="range" id="centerY" min="-1.5" max="1.5" step="0.1" value="0">
+                </div>
+            </details>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="glCanvas" width="800" height="800"></canvas>
+            <canvas id="paintCanvas" width="800" height="800"></canvas>
+            <canvas id="uiCanvas" width="800" height="800"></canvas>
+        </div>
+    </div>
+
+<script id="v-shader" type="x-shader/x-vertex">
+    attribute vec2 a_position;
+    void main() { gl_Position = vec4(a_position, 0, 1); }
+</script>
+
+<script id="f-shader" type="x-shader/x-fragment">
+    precision highp float;
+    uniform vec2 u_res;
+    uniform vec2 u_c;
+    uniform float u_mode;
+    uniform float u_bright;
+    uniform vec2 u_camPos;
+    uniform float u_zoom;
+    uniform float u_opacity;
+
+    vec3 hsl2rgb(float h, float s, float l) {
+        vec3 rgb = clamp(abs(mod(h*6.0+vec3(0,4,2),6.0)-3.0)-1.0, 0.0, 1.0);
+        return l + s * (rgb-0.5)*(1.0-abs(2.0*l-1.0));
+    }
+
+    void main() {
+        if(u_mode == 0.0 || u_opacity == 0.0) { 
+            gl_FragColor = vec4(0.0); 
+            return; 
+        }
+
+        vec2 uv = (gl_FragCoord.xy - 0.5 * u_res) / u_res.y;
+        vec2 z = uv * 2.0 * u_zoom + u_camPos;
+        vec2 c = u_c;
+
+        if(u_mode == 2.0) { c = z; z = vec2(0.0); }
+
+        float iter = 0.0;
+        const float maxIter = 130.0;
+        for(float i=0.0; i < maxIter; i++) {
+            z = vec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y) + c;
+            if(length(z) > 2.0) break;
+            iter++;
+        }
+
+        if(iter == maxIter) {
+            gl_FragColor = vec4(0.0, 0.0, 0.0, u_opacity); 
+        } else {
+            vec3 col = hsl2rgb(mod(iter * 4.0, 360.0)/360.0, 0.6, (iter/maxIter) * u_bright * 1.5);
+            gl_FragColor = vec4(col, u_opacity);
+        }
+    }
+</script>
+
+<script>
+    const uiCanvas = document.getElementById('uiCanvas'), uiCtx = uiCanvas.getContext('2d');
+    const paintCanvas = document.getElementById('paintCanvas'), paintCtx = paintCanvas.getContext('2d');
+    // Включаем альфа канал чтобы холст мог становиться прозрачным
+    const gl = document.getElementById('glCanvas').getContext('webgl', { alpha: true, premultipliedAlpha: false });
+    
+    const valC = document.getElementById('valC'), valZ = document.getElementById('valZ');
+    const status = document.getElementById('status'), lblIter = document.getElementById('lblIter');
+    const btnAnimate = document.getElementById('btnAnimate');
+    const brushRange = document.getElementById('brushRange');
+    const opacityRange = document.getElementById('opacityRange');
+    const sidePanel = document.getElementById('sidePanel');
+    const menuToggle = document.getElementById('menuToggle');
+
+    let mode = 0, C = { x: -0.8, y: 0.156 }, Z0 = { x: 0.0, y: 0.0 };
+    // Параметры камеры
+    let cam = { x: 0, y: 0, zoom: 2.2 };
+    
+    let dragging = null, visibleC = true, visibleZ = true, isAnimating = false, animTime = 0;
+    let lastPanPos = { x: 0, y: 0 };
+    let touchDist = 0;
+
+    let lastC = { x: C.x, y: C.y };
+    let lastPaintPos = null;
+
+    menuToggle.onclick = () => {
+        sidePanel.classList.toggle('open');
+        menuToggle.innerText = sidePanel.classList.contains('open') ? "× Закрыть" : "≡ Настройки";
+    };
+
+    function createShader(gl, type, source) {
+        const s = gl.createShader(type); gl.shaderSource(s, source); gl.compileShader(s); return s;
+    }
+    const program = gl.createProgram();
+    gl.attachShader(program, createShader(gl, gl.VERTEX_SHADER, document.getElementById('v-shader').text));
+    gl.attachShader(program, createShader(gl, gl.FRAGMENT_SHADER, document.getElementById('f-shader').text));
+    gl.linkProgram(program); gl.useProgram(program);
+
+    const buffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+    const posLoc = gl.getAttribLocation(program, "a_position");
+    gl.enableVertexAttribArray(posLoc); gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+    const uRes = gl.getUniformLocation(program, "u_res");
+    const uC = gl.getUniformLocation(program, "u_c");
+    const uMode = gl.getUniformLocation(program, "u_mode");
+    const uBright = gl.getUniformLocation(program, "u_bright");
+    const uCamPos = gl.getUniformLocation(program, "u_camPos");
+    const uZoom = gl.getUniformLocation(program, "u_zoom");
+    const uOpacity = gl.getUniformLocation(program, "u_opacity");
+
+    // Новые функции трансформации координат (с учетом зума)
+    function toScreen(x, y) { 
+        return { 
+            x: ((x - cam.x) / (2 * cam.zoom)) * 800 + 400, 
+            y: 400 - ((y - cam.y) / (2 * cam.zoom)) * 800 
+        }; 
+    }
+    function toMath(sx, sy) { 
+        return { 
+            x: ((sx - 400) / 800) * 2 * cam.zoom + cam.x, 
+            y: cam.y - ((sy - 400) / 800) * 2 * cam.zoom 
+        }; 
+    }
+
+    function update() {
+        if (isAnimating) {
+            const speed = parseFloat(document.getElementById('animSpeed').value);
+            const radius = parseFloat(document.getElementById('animRadius').value);
+            const tight = parseFloat(document.getElementById('animTight').value);
+            animTime += 0.01 * speed;
+            let r = (animTime * tight) % radius;
+            C.x = parseFloat(document.getElementById('centerX').value) + Math.cos(animTime) * r;
+            C.y = parseFloat(document.getElementById('centerY').value) + Math.sin(animTime) * r;
+        }
+
+        gl.clearColor(0,0,0,0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        // WebGL Render
+        gl.uniform2f(uRes, 800, 800);
+        gl.uniform2f(uC, C.x, C.y);
+        gl.uniform2f(uCamPos, cam.x, cam.y);
+        gl.uniform1f(uZoom, cam.zoom);
+        gl.uniform1f(uMode, mode);
+        gl.uniform1f(uBright, document.getElementById('brightRange').value / 100);
+        gl.uniform1f(uOpacity, document.getElementById('opacityRange').value / 100);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+        // Расчет орбиты
+        let maxI = parseInt(document.getElementById('iterRange').value), escaped = false;
+        let orbit = [];
+        if (maxI > 0) {
+            orbit = [{...Z0}]; let curr = {...Z0};
+            for (let i = 0; i < maxI; i++) {
+                let x = curr.x * curr.x - curr.y * curr.y + C.x, y = 2 * curr.x * curr.y + C.y;
+                curr.x = x; curr.y = y; orbit.push({...curr});
+                if (x*x + y*y > 4) { escaped = true; break; }
+            }
+        }
+
+        // Логика Кисти
+        let brushSize = parseInt(brushRange.value);
+        if (C.x !== lastC.x || C.y !== lastC.y || dragging === 'pan' || dragging === 'pinch') {
+            paintCtx.clearRect(0, 0, 800, 800);
+            lastC = { x: C.x, y: C.y };
+        }
+
+        if (brushSize > 0 && dragging === 'Z0') {
+            if (!escaped) {
+                let sZ = toScreen(Z0.x, Z0.y);
+                paintCtx.strokeStyle = 'rgba(85, 255, 85, 0.7)';
+                paintCtx.fillStyle = 'rgba(85, 255, 85, 0.7)';
+                paintCtx.lineWidth = brushSize * 2;
+                paintCtx.lineCap = 'round';
+                
+                if (lastPaintPos) {
+                    paintCtx.beginPath(); paintCtx.moveTo(lastPaintPos.x, lastPaintPos.y); paintCtx.lineTo(sZ.x, sZ.y); paintCtx.stroke();
+                } else {
+                    paintCtx.beginPath(); paintCtx.arc(sZ.x, sZ.y, brushSize, 0, Math.PI * 2); paintCtx.fill();
+                }
+                lastPaintPos = sZ;
+            } else { lastPaintPos = null; }
+        } else { lastPaintPos = null; }
+
+        // Отрисовка UI и Сетки
+        uiCtx.clearRect(0, 0, 800, 800);
+        
+        // Динамическая бесконечная сетка
+        let step = Math.pow(10, Math.floor(Math.log10(cam.zoom * 0.5)));
+        if ((cam.zoom * 2) / step < 4) step /= 2;
+
+        uiCtx.strokeStyle = 'rgba(255,255,255,0.06)'; uiCtx.lineWidth = 1; uiCtx.beginPath();
+        let startX = Math.floor((cam.x - cam.zoom) / step) * step;
+        for(let x = startX; x <= cam.x + cam.zoom; x += step) {
+            let s = toScreen(x, 0); uiCtx.moveTo(s.x, 0); uiCtx.lineTo(s.x, 800);
+        }
+        let startY = Math.floor((cam.y - cam.zoom) / step) * step;
+        for(let y = startY; y <= cam.y + cam.zoom; y += step) {
+            let s = toScreen(0, y); uiCtx.moveTo(0, s.y); uiCtx.lineTo(800, s.y);
+        }
+        uiCtx.stroke();
+
+        // Главные оси (X и Y)
+        uiCtx.strokeStyle = 'rgba(255,255,255,0.15)'; uiCtx.lineWidth = 2; uiCtx.beginPath();
+        let s0 = toScreen(0, 0);
+        uiCtx.moveTo(s0.x, 0); uiCtx.lineTo(s0.x, 800);
+        uiCtx.moveTo(0, s0.y); uiCtx.lineTo(800, s0.y);
+        uiCtx.stroke();
+
+        // Линии орбиты
+        if (orbit.length > 0) {
+            uiCtx.beginPath(); uiCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)'; uiCtx.lineWidth = 1.5;
+            let st = toScreen(orbit[0].x, orbit[0].y); uiCtx.moveTo(st.x, st.y);
+            orbit.forEach(p => { let s = toScreen(p.x, p.y); uiCtx.lineTo(s.x, s.y); }); uiCtx.stroke();
+            orbit.forEach((p, i) => {
+                let s = toScreen(p.x, p.y); uiCtx.fillStyle = i === 0 ? '#55ff55' : `hsla(${200 + i}, 100%, 75%, ${Math.max(0, 1 - i/120)})`;
+                uiCtx.beginPath(); uiCtx.arc(s.x, s.y, i === 0 ? 5 : 2, 0, Math.PI*2); uiCtx.fill();
+            });
+        }
+
+        if (visibleC) drawHandle(C, '#ff5555', 'C');
+        if (visibleZ) drawHandle(Z0, '#55ff55', 'Z₀');
+
+        // Координаты на холсте внизу
+        uiCtx.fillStyle = "rgba(5,5,5,0.8)"; uiCtx.fillRect(290, 775, 220, 22);
+        uiCtx.fillStyle = "#ccc"; uiCtx.font = "13px monospace"; uiCtx.textAlign = "center";
+        uiCtx.fillText(`C : Re [${C.x.toFixed(3)}] Im [${C.y.toFixed(3)}]`, 400, 791);
+        uiCtx.textAlign = "left";
+
+        valC.innerText = `${C.x.toFixed(4)} + ${C.y.toFixed(4)}i`;
+        valZ.innerText = `${Z0.x.toFixed(4)} + ${Z0.y.toFixed(4)}i`;
+        lblIter.innerText = maxI;
+        status.innerText = escaped ? "УЛЕТАЕТ" : "СТАБИЛЬНА";
+        status.className = 'status-badge ' + (escaped ? 'escaping' : 'stable');
+
+        requestAnimationFrame(update);
+    }
+
+    function drawHandle(point, color, label) {
+        let s = toScreen(point.x, point.y);
+        uiCtx.fillStyle = color; uiCtx.beginPath(); uiCtx.arc(s.x, s.y, 8, 0, Math.PI*2); uiCtx.fill();
+        uiCtx.strokeStyle = 'white'; uiCtx.lineWidth = 1.5; uiCtx.stroke();
+        uiCtx.fillStyle = 'white'; uiCtx.font = 'bold 13px Arial'; uiCtx.fillText(label, s.x + 12, s.y - 12);
+    }
+
+    // Обработка ввода (Мышь + Тач)
+    function getEventPos(e) {
+        const r = uiCanvas.getBoundingClientRect();
+        let cX = e.clientX, cY = e.clientY;
+        if (e.touches && e.touches.length > 0) { cX = e.touches[0].clientX; cY = e.touches[0].clientY; }
+        return { x: (cX - r.left) * (800 / r.width), y: (cY - r.top) * (800 / r.height) };
+    }
+
+    function getPinchDist(touches) {
+        return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+    }
+
+    // Обработчик зума мышью
+    uiCanvas.addEventListener('wheel', e => {
+        e.preventDefault();
+        const pos = getEventPos(e);
+        const mBefore = toMath(pos.x, pos.y);
+        cam.zoom *= e.deltaY > 0 ? 1.1 : 0.9;
+        const mAfter = toMath(pos.x, pos.y);
+        cam.x += (mBefore.x - mAfter.x);
+        cam.y += (mBefore.y - mAfter.y);
+    }, {passive: false});
+
+    // Общие обработчики мыши и касаний
+    function pointerStart(e) {
+        if (e.touches && e.touches.length === 2) {
+            dragging = 'pinch';
+            touchDist = getPinchDist(e.touches);
+            return;
+        }
+        const pos = getEventPos(e);
+        if (visibleC && Math.hypot(pos.x - toScreen(C.x, C.y).x, pos.y - toScreen(C.x, C.y).y) < 40) { 
+            dragging = 'C'; isAnimating = false; btnAnimate.classList.remove('animating'); btnAnimate.innerText = "Запустить спираль"; 
+        } else if (visibleZ && Math.hypot(pos.x - toScreen(Z0.x, Z0.y).x, pos.y - toScreen(Z0.x, Z0.y).y) < 40) {
+            dragging = 'Z0';
+        } else {
+            dragging = 'pan';
+            lastPanPos = { x: pos.x, y: pos.y };
+        }
+    }
+
+    function pointerMove(e) {
+        if (!dragging) return;
+        if (e.touches && dragging === 'pinch' && e.touches.length === 2) {
+            e.preventDefault();
+            const r = uiCanvas.getBoundingClientRect();
+            let mx = ((e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left) * (800 / r.width);
+            let my = ((e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top) * (800 / r.height);
+            let newDist = getPinchDist(e.touches);
+            
+            const mBefore = toMath(mx, my);
+            cam.zoom *= touchDist / newDist;
+            const mAfter = toMath(mx, my);
+            cam.x += (mBefore.x - mAfter.x);
+            cam.y += (mBefore.y - mAfter.y);
+            touchDist = newDist;
+            return;
+        }
+
+        if (dragging === 'pan') {
+            const pos = getEventPos(e);
+            cam.x -= (pos.x - lastPanPos.x) * (2 * cam.zoom / 800);
+            cam.y += (pos.y - lastPanPos.y) * (2 * cam.zoom / 800);
+            lastPanPos = { x: pos.x, y: pos.y };
+        } else if (dragging === 'C' || dragging === 'Z0') {
+            const m = toMath(getEventPos(e).x, getEventPos(e).y);
+            if (dragging === 'C') { C.x = m.x; C.y = m.y; } else { Z0.x = m.x; Z0.y = m.y; }
+        }
+        if (e.touches) e.preventDefault();
+    }
+
+    function pointerEnd() { dragging = null; }
+
+    uiCanvas.addEventListener('mousedown', pointerStart);
+    window.addEventListener('mousemove', pointerMove);
+    window.addEventListener('mouseup', pointerEnd);
+
+    uiCanvas.addEventListener('touchstart', pointerStart, {passive: false});
+    window.addEventListener('touchmove', pointerMove, { passive: false });
+    window.addEventListener('touchend', pointerEnd);
+
+    const btnModes = { btnNone: 0, btnJulia: 1, btnMandel: 2 };
+    Object.keys(btnModes).forEach(id => {
+        document.getElementById(id).onclick = function() {
+            mode = btnModes[id]; Object.keys(btnModes).forEach(k => document.getElementById(k).classList.remove('active'));
+            this.classList.add('active');
+        };
+    });
+
+    btnAnimate.onclick = function() {
+        isAnimating = !isAnimating; this.classList.toggle('animating', isAnimating);
+        this.innerText = isAnimating ? "Остановить" : "Запустить спираль";
+    };
+
+    ['animSpeed', 'animRadius', 'animTight', 'centerX', 'centerY'].forEach(id => {
+        document.getElementById(id).oninput = function() { document.getElementById('val' + id.charAt(0).toUpperCase() + id.slice(1)).innerText = this.value; };
+    });
+    
+    opacityRange.oninput = function() { document.getElementById('valOpacity').innerText = this.value + "%"; };
+    brushRange.oninput = function() {
+        let val = parseInt(this.value); document.getElementById('valBrush').innerText = val === 0 ? "0 (Выкл)" : val;
+        if (val === 0) paintCtx.clearRect(0, 0, 800, 800);
+    };
+
+    document.getElementById('toggleC').onclick = function() { visibleC = !visibleC; this.className = visibleC ? 'toggle-active' : 'toggle-inactive'; };
+    document.getElementById('toggleZ').onclick = function() { visibleZ = !visibleZ; this.className = visibleZ ? 'toggle-active' : 'toggle-inactive'; };
+
+    update();
+</script>
+</body>
+</html>
