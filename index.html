@@ -34,30 +34,31 @@
         }
 
         h1 {
-            font-size: 28px;
+            font-size: 26px;
             font-weight: 600;
             letter-spacing: -0.5px;
             margin: 0;
+            opacity: 0.9;
         }
 
         /* Список карточек */
         .grid {
             display: flex;
             flex-direction: column;
-            gap: 15px; /* Отделяем их друг от друга */
+            gap: 16px;
         }
 
         .card {
             background-color: var(--card-bg);
             border: 1px solid var(--border);
-            border-radius: var(--radius); /* Закругление */
+            border-radius: var(--radius);
             padding: 30px;
             display: grid;
             grid-template-columns: 1fr 2fr;
             align-items: center;
             text-decoration: none;
             color: inherit;
-            transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+            transition: all 0.2s ease;
             cursor: pointer;
         }
 
@@ -96,28 +97,34 @@
             border: none;
         }
 
-        /* КРАСНАЯ КНОПКА ВЫХОДА */
+        /* КНОПКА ВЫХОДА */
         .btn-exit {
             position: absolute;
-            top: 25px;
-            right: 25px;
-            background: var(--danger);
-            color: #fff;
-            border: none;
-            padding: 12px 24px;
+            top: 20px;
+            right: 20px;
+            height: 42px;
+            padding: 0 24px;
+            background: transparent;
+            border: 1px solid var(--danger);
+            color: var(--danger);
             border-radius: 10px;
+            font-family: inherit;
             font-size: 13px;
-            font-weight: 700;
+            font-weight: 600;
             cursor: pointer;
             z-index: 2100;
-            text-transform: uppercase;
-            box-shadow: 0 0 20px rgba(255, 50, 50, 0.3);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+            letter-spacing: 1px;
         }
 
-        .btn-exit:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 30px rgba(255, 50, 50, 0.5);
+        .btn-exit:hover, .btn-exit:active {
+            background: var(--danger);
+            color: #ffffff;
+            box-shadow: 0 0 15px rgba(255, 50, 50, 0.4);
         }
 
         @media (max-width: 650px) {
@@ -162,7 +169,7 @@
 
         <!-- JULUAFRACTALLAB -->
         <div class="card" onclick="launch('JULUAFRACTALLAB.html')">
-            <h2>Julia Matrix</h2>
+            <h2>Julia Lab</h2>
             <div class="card-desc">Множества Жюлиа, образующие множество Мандельброта.</div>
         </div>
 
@@ -175,7 +182,7 @@
 </div>
 
 <div id="launcher">
-    <button class="btn-exit" onclick="terminate()">Выйти [ESC]</button>
+    <button class="btn-exit" onclick="terminate()">ВЫЙТИ</button>
     <iframe id="viewer" src=""></iframe>
 </div>
 
