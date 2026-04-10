@@ -9,33 +9,45 @@
         canvas { display: block; cursor: grab; }
         canvas:active { cursor: grabbing; }
         
-        /* Кнопка Меню (Обновленные стили) */
         #showMenuBtn {
-            position: absolute; top: 20px; left: 20px; z-index: 100; 
+            position: absolute; bottom: 15px; right: 15px; z-index: 100; 
             height: 42px; padding: 0 20px;
             background: rgba(20, 20, 25, 0.85); color: #00ffcc; 
             border: 1px solid #333; border-radius: 10px; 
             cursor: pointer; backdrop-filter: blur(5px); 
             font-weight: bold; font-size: 13px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.6); 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6); transition: bottom 0.3s ease;
             display: flex; align-items: center; justify-content: center;
         }
+        body.has-bottom-slider #showMenuBtn { bottom: 110px; }
 
-        /* Меню (Слева сверху) */
         #controls {
-            position: absolute; top: 20px; left: 20px; width: 340px; max-width: calc(100vw - 40px);
+            position: absolute; bottom: 67px; /* 15px + 42px (кнопка) + 10px (отступ) */
+            right: 15px; width: 340px; max-width: calc(100vw - 30px);
             background: rgba(15, 15, 20, 0.2); padding: 20px; border-radius: 12px; border: 1px solid #333; 
             backdrop-filter: blur(15px); box-shadow: 0 10px 40px rgba(0,0,0,0.9); 
-            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); 
+            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), bottom 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); 
             z-index: 101; box-sizing: border-box; 
-            max-height: calc(100vh - 40px); overflow-y: auto;
+            max-height: calc(100vh - 87px); /* 67px + 20px отступ сверху */
+            overflow-y: auto;
         }
-        /* Уезжает влево при скрытии */
-        #controls.hidden { transform: translateX(calc(-100% - 50px)) !important; }
+        #controls.hidden { transform: translateX(calc(100% + 50px)) !important; }
+        
+        /* Положение меню в режиме конструктора (Вертикально) */
+        body.has-bottom-slider #controls { 
+            bottom: 162px; /* 110px + 42px (кнопка) + 10px (отступ) */
+            max-height: calc(100vh - 182px); /* Ограничение высоты */
+        }
 
         @media (orientation: landscape) {
-            body.has-bottom-slider #controls { width: 45%; max-width: 400px; }
-            body.has-bottom-slider #bottomAngleContainer { bottom: 15px; left: 50%; transform: translateX(-50%); width: 60%; max-width: 500px; }
+            body.has-bottom-slider #controls { 
+                bottom: 67px; right: 15px; width: 45%; max-width: 400px;
+                max-height: calc(100vh - 87px);
+            }
+            body.has-bottom-slider #bottomAngleContainer { 
+                bottom: 15px; left: 15px; transform: none; width: 45%; max-width: 400px;
+            }
+            body.has-bottom-slider #showMenuBtn { bottom: 15px; }
         }
 
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
@@ -102,24 +114,26 @@
 
     <div id="guideModal">
         <div class="modal-content">
-            <h3>Как работает конструктор?</h3>
-            <p>Вы создаете фрактал, задавая правила для одной «палочки» (линии) <b>F</b>.</p>
-            <p><b>Главный принцип:</b><br>На каждой итерации программа берет прямую палочку и заменяет её на последовательность действий. Поле «Правило F» — это правая часть уравнения: <br><b>F = [то, что вы ввели]</b>.</p>
+            <h3>Как это работает?</h3>
+            <p>L-система состоит из двух вещей: аксиома — стартовая строка, и правило — замена для символа <b>F</b>.</p>
+            <p><b>Главный принцип:</b> На каждом шаге каждый F в строке заменяется на правило. Остальные символы копируются без изменений. Поле «Правило F» — это правая часть уравнения: <br><b>F = [то, что вы ввели]</b>.</p>
             
-            <div class="example-box">
-                <b>Пример:</b> Угол = 60°, Правило F = <b>F + F - - F + F</b><br><br>
-                На каждом шаге любая одна палочка будет заменяться на:<br>
-                палочка → поворот на 60° → палочка → поворот на -120° → палочка → поворот на 60° → палочка.
-            </div>
-
-            <p><b>Команды рисования:</b></p>
+            <p><b>Команды управления:</b></p>
             <ul style="padding-left: 20px;">
                 <li><b>F</b> — нарисовать отрезок (палочку).</li>
-                <li><b>+</b> — повернуться вправо на угол.</li>
-                <li><b>-</b> — повернуться влево на угол.</li>
+                <li><b>+</b> — повернуться <b>направо</b> на заданный угол.</li>
+                <li><b>-</b> — повернуться <b>налево</b> на заданный угол.</li>
                 <li><b>[</b> — сохранить текущее место (начать ветку).</li>
-                <li><b>]</b> — вернуться назад к последней метке.</li>
+                <li><b>]</b> — вернуться назад к метке (закончить ветку).</li>
             </ul>
+
+            <div class="example-box">
+                <b>Пример:</b> <br>Угол = <b>60°</b> <br>Правило F = <b>F + F - - F + F</b><br><br>
+                Программа заменит каждую линию на:<br>
+                палочка → <b>направо</b> 60° → палочка → <b>налево</b> 120° → палочка → <b>направо</b> 60° → палочка.
+            </div>
+
+            <p><b>Ветвление:</b> <b>[</b> и <b>]</b> создают ветки. Всё внутри <b>[...]</b> рисуется как ответвление — после <b>]</b> позиция возвращается к точке где был <b>[</b>. <br><b>F[+F][-F]F</b> — линия, ветка вправо, ветка влево, линия вперёд..</p>
             <button id="closeGuide">Понятно</button>
         </div>
     </div>
@@ -491,9 +505,8 @@
                 cameraX += e.touches[0].clientX - lastMouseX; cameraY += e.touches[0].clientY - lastMouseY; 
                 lastMouseX = e.touches[0].clientX; lastMouseY = e.touches[0].clientY; renderFrame(); 
             } else if(e.touches.length === 2 && initialPinchDist) { 
-                const t1 = e.touches[0], t2 = e.touches[1];
-                const d = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-                const mx = (t1.clientX + t2.clientX) / 2, my = (t1.clientY + t2.clientY) / 2;
+                const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+                const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2, my = (e.touches[0].clientY + e.touches[1].clientY) / 2;
                 cameraX += mx - lastMidX; cameraY += my - lastMidY;
                 const f = d / initialPinchDist; cameraX = mx - (mx - cameraX) * f; cameraY = my - (my - cameraY) * f; cameraZoom *= f;
                 initialPinchDist = d; lastMidX = mx; lastMidY = my; renderFrame(); 
@@ -528,15 +541,15 @@
         treeAngleInput.oninput = () => syncAngle(treeAngleInput.value);
 
         colorMode.onchange = () => {
-            document.getElementById('colorParams').style.display = (colorMode.value === 'rainbow') ? 'none' : 'flex';
-            color2.style.display = (colorMode.value === 'gradient') ? 'block' : 'none';
+            document.getElementById('colorParams').style.display = colorMode.value === 'rainbow' ? 'none' : 'flex';
+            color2.style.display = colorMode.value === 'gradient' ? 'block' : 'none';
             buildBatches(); renderFrame();
         };
 
         selectType.onchange = () => {
             const type = selectType.value, f = fractals[type];
             const hasSlider = (type === 'custom_ls' || type === 'pythagoras');
-            document.getElementById('body').className = hasSlider ? 'has-bottom-slider is-constructor' : '';
+            document.getElementById('body').className = hasSlider ? 'has-bottom-slider' : '';
             bottomAngleContainer.style.display = hasSlider ? 'block' : 'none';
             customLSDiv.style.display = (type === 'custom_ls') ? 'block' : 'none';
             treeParamsDiv.style.display = (type === 'pythagoras') ? 'block' : 'none';
