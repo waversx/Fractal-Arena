@@ -37,11 +37,10 @@
             padding: 0;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
             user-select: none;
-            -webkit-tap-highlight-color: transparent; /* Убирает синий квадрат при тапе на мобилках */
+            -webkit-tap-highlight-color: transparent;
             outline: none;
         }
 
-        /* Применяем hover только для устройств с мышкой, чтобы на телефоне не залипало */
         @media (hover: hover) {
             .icon-btn:hover { background: rgba(30, 30, 30, 0.9); border-color: #00f2ff; }
         }
@@ -49,7 +48,6 @@
         #btn-settings { font-size: 24px; line-height: 1; }
         #btn-julia { font-family: monospace; font-size: 22px; font-weight: bold; }
         
-        /* Этот класс показывает, что режим Жулиа включен */
         #btn-julia.active { 
             background: rgba(0, 242, 255, 0.15); 
             border-color: #00f2ff; 
@@ -94,7 +92,8 @@
     <button class="icon-btn" id="btn-julia" onclick="toggleJuliaBtn()">J</button>
 </div>
 
-<div id="ui">
+<!-- Добавлен класс hidden по умолчанию -->
+<div id="ui" class="hidden">
     <h1>Настройки</h1>
 
     <div class="item">
@@ -239,7 +238,6 @@
         document.getElementById('btn-julia').classList.remove('active');
     }
 
-    // Функция скрытия меню
     function hideMenuIfOpen() {
         const ui = document.getElementById('ui');
         if (!ui.classList.contains('hidden')) {
@@ -412,8 +410,7 @@
     let lastDist = 0, isDrag = false, lastT = { x: 0, y: 0 }, lastMid = { x: 0, y: 0 };
     
     canvas.addEventListener('touchstart', e => {
-        hideMenuIfOpen(); // Скрываем меню при тапе по холсту
-        
+        hideMenuIfOpen();
         if (isSelectingJulia && e.touches.length === 1) {
             juliaC.r = ((e.touches[0].clientX / window.innerWidth) * 2 - 1) * view.scale * aspect + view.x;
             juliaC.i = ((e.touches[0].clientY / window.innerHeight) * 2 - 1) * view.scale + view.y;
@@ -476,8 +473,7 @@
     });
 
     canvas.onmousedown = e => {
-        hideMenuIfOpen(); // Скрываем меню при клике мыши по холсту
-        
+        hideMenuIfOpen();
         if (isSelectingJulia) {
             juliaC.r = ((e.clientX / window.innerWidth) * 2 - 1) * view.scale * aspect + view.x;
             juliaC.i = ((e.clientY / window.innerHeight) * 2 - 1) * view.scale + view.y;
