@@ -3,272 +3,197 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fractal Lab Hub</title>
+    <title>Fractal Archive</title>
     <style>
         :root {
-            --bg: #050505;
-            --card-bg: rgba(20, 20, 25, 0.8);
-            --accent: #00f2ff;
-            --text: #e0e0e0;
+            --bg: #0a0a0b;
+            --card-bg: #141415;
+            --border: #222224;
+            --text-main: #ffffff;
+            --text-dim: #88888d;
+            --danger: #ff3232;
+            --radius: 20px;
         }
 
         body, html {
             margin: 0; padding: 0;
             background-color: var(--bg);
-            color: var(--text);
-            font-family: 'Segoe UI', Roboto, sans-serif;
-            overflow-x: hidden;
-        }
-
-        /* Фоновый эффект */
-        .bg-gradient {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: radial-gradient(circle at 50% 50%, #101015 0%, #050505 100%);
-            z-index: -1;
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+            -webkit-font-smoothing: antialiased;
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 800px;
             margin: 0 auto;
-            padding: 40px 20px;
+            padding: 60px 20px;
         }
 
         header {
-            text-align: center;
-            margin-bottom: 60px;
+            margin-bottom: 50px;
         }
 
         h1 {
-            font-size: 3rem;
-            letter-spacing: 10px;
-            text-transform: uppercase;
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
             margin: 0;
-            background: linear-gradient(to right, #fff, var(--accent));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 0 15px rgba(0, 242, 255, 0.3));
         }
 
-        p.subtitle {
-            color: #666;
-            letter-spacing: 2px;
-            margin-top: 10px;
-        }
-
-        /* Сетка карточек */
+        /* Список карточек */
         .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px; /* Отделяем их друг от друга */
         }
 
         .card {
-            background: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 20px;
-            overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            position: relative;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius); /* Закругление */
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            align-items: center;
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
             cursor: pointer;
-            backdrop-filter: blur(10px);
         }
 
         .card:hover {
-            transform: translateY(-10px) scale(1.02);
-            border-color: var(--accent);
-            box-shadow: 0 10px 30px rgba(0, 242, 255, 0.15);
+            background-color: #1a1a1c;
+            border-color: #333335;
+            transform: translateY(-2px);
         }
 
-        /* Область предпросмотра */
-        .preview-area {
-            height: 200px;
-            background: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .preview-area img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            opacity: 0.5;
-            transition: 0.3s;
-        }
-
-        .card:hover .preview-area img {
-            opacity: 0.8;
-        }
-
-        .card-info {
-            padding: 20px;
-        }
-
-        .card-title {
-            font-size: 1.2rem;
-            color: var(--accent);
-            margin: 0 0 10px 0;
-            font-weight: bold;
+        h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
         }
 
         .card-desc {
-            font-size: 0.9rem;
-            color: #999;
-            line-height: 1.4;
-            height: 60px;
+            font-size: 14px;
+            color: var(--text-dim);
+            line-height: 1.5;
+            padding-left: 20px;
+            border-left: 1px solid #222;
         }
 
-        .btn-open {
-            display: inline-block;
-            margin-top: 15px;
-            padding: 8px 20px;
-            background: transparent;
-            border: 1px solid var(--accent);
-            color: var(--accent);
-            border-radius: 30px;
-            text-decoration: none;
-            font-size: 0.8rem;
-            font-weight: bold;
-            transition: 0.3s;
-        }
-
-        .card:hover .btn-open {
-            background: var(--accent);
-            color: #000;
-        }
-
-        /* Модальное окно для запуска */
-        #modal {
+        /* Плеер */
+        #launcher {
             position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
+            inset: 0;
             background: #000;
-            display: none;
             z-index: 1000;
+            display: none;
         }
 
-        #modal iframe {
-            width: 100%; height: 100%; border: none;
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
         }
 
-        #close-modal {
-            position: absolute; top: 20px; right: 20px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white; border: none; padding: 10px 20px;
-            border-radius: 30px; cursor: pointer; z-index: 1001;
-            font-weight: bold; backdrop-filter: blur(10px);
+        /* КРАСНАЯ КНОПКА ВЫХОДА */
+        .btn-exit {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            background: var(--danger);
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            z-index: 2100;
+            text-transform: uppercase;
+            box-shadow: 0 0 20px rgba(255, 50, 50, 0.3);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
-        #close-modal:hover { background: #ff3333; }
+        .btn-exit:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(255, 50, 50, 0.5);
+        }
 
-        .tag {
-            position: absolute; top: 10px; left: 10px;
-            padding: 4px 10px; background: rgba(0,0,0,0.7);
-            border-radius: 5px; font-size: 0.7rem; color: var(--accent);
-            border: 1px solid var(--accent);
+        @media (max-width: 650px) {
+            .card {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            .card-desc {
+                padding-left: 0;
+                border-left: none;
+                border-top: 1px solid #222;
+                padding-top: 15px;
+            }
         }
     </style>
 </head>
 <body>
 
-<div class="bg-gradient"></div>
-
 <div class="container">
     <header>
-        <h1>Fractal Arena</h1>
-        <p class="subtitle">КОЛЛЕКЦИЯ МАТЕМАТИЧЕСКИХ МИРОВ</p>
+        <h1>Проекты</h1>
     </header>
 
     <div class="grid">
-        <!-- Карточка 1: Orbitica -->
-        <div class="card" onclick="openApp('ORBITICA.html')">
-            <div class="preview-area">
-                <div class="tag">WebGL / HD</div>
-                <div style="color:var(--accent); font-size:40px;">💠</div>
-            </div>
-            <div class="card-info">
-                <div class="card-title">Orbitica HD</div>
-                <div class="card-desc">Интерактивное исследование орбит в высоком разрешении. Двигай точки C и Z вручную.</div>
-                <div class="btn-open">ЗАПУСТИТЬ</div>
-            </div>
+        <!-- ORBITICA -->
+        <div class="card" onclick="launch('ORBITICA.html')">
+            <h2>Orbitica HD</h2>
+            <div class="card-desc">Исследователь орбит и траекторий. Прямое управление параметрами C и Z.</div>
         </div>
 
-        <!-- Карточка 2: Julia Lab -->
-        <div class="card" onclick="openApp('JULUAFRACTALLAB.html')">
-            <div class="preview-area">
-                <div class="tag">Matrix / Grid</div>
-                <div style="color:var(--accent); font-size:40px;">🔳</div>
-            </div>
-            <div class="card-info">
-                <div class="card-title">Julia Matrix</div>
-                <div class="card-desc">Бесконечная сетка множеств Жюлиа. Режимы "Матрица", "Огонь" и кастомные цвета.</div>
-                <div class="btn-open">ЗАПУСТИТЬ</div>
-            </div>
+        <!-- BUDDABROT -->
+        <div class="card" onclick="launch('BUDDABROT.html')">
+            <h2>Buddhabrot</h2>
+            <div class="card-desc">Генератор плотности распределения. Визуализация, похожая на туманности.</div>
         </div>
 
-        <!-- Карточка 3: Fractal Sound -->
-        <div class="card" onclick="openApp('FRACTALSOUND.html')">
-            <div class="preview-area">
-                <div class="tag">Audio / Synth</div>
-                <div style="color:var(--accent); font-size:40px;">🎹</div>
-            </div>
-            <div class="card-info">
-                <div class="card-title">Fractal Sound</div>
-                <div class="card-desc">Генерация звуковых волн на основе математических формул. Послушай математику.</div>
-                <div class="btn-open">ЗАПУСТИТЬ</div>
-            </div>
+        <!-- FRACTALSOUND -->
+        <div class="card" onclick="launch('FRACTALSOUND.html')">
+            <h2>Fractal Sound</h2>
+            <div class="card-desc">Синтезатор звука. Преобразование математических итераций в аудиоволны.</div>
         </div>
 
-        <!-- Карточка 4: Buddhabrot -->
-        <div class="card" onclick="openApp('BUDDABROT.html')">
-            <div class="preview-area">
-                <div class="tag">Render / Space</div>
-                <div style="color:var(--accent); font-size:40px;">☸️</div>
-            </div>
-            <div class="card-info">
-                <div class="card-title">Buddhabrot</div>
-                <div class="card-desc">Глубокое рендеринг плотности. Создает изображения, похожие на космические туманности.</div>
-                <div class="btn-open">ЗАПУСТИТЬ</div>
-            </div>
+        <!-- JULUAFRACTALLAB -->
+        <div class="card" onclick="launch('JULUAFRACTALLAB.html')">
+            <h2>Julia Matrix</h2>
+            <div class="card-desc">Множества Жюлиа, образующие множество Мандельброта.</div>
         </div>
 
-        <!-- Карточка 5: Geometrical -->
-        <div class="card" onclick="openApp('GEOMETRICALFRACTALS.html')">
-            <div class="preview-area">
-                <div class="tag">Lines / L-System</div>
-                <div style="color:var(--accent); font-size:40px;">📐</div>
-            </div>
-            <div class="card-info">
-                <div class="card-title">Geometric Lab</div>
-                <div class="card-desc">Конструктор классических фракталов: Снежинка Коха, Драконы и деревья.</div>
-                <div class="btn-open">ЗАПУСТИТЬ</div>
-            </div>
+        <!-- GEOMETRICALFRACTALS -->
+        <div class="card" onclick="launch('GEOMETRICALFRACTALS.html')">
+            <h2>Geometry Lab</h2>
+            <div class="card-desc">Построение фракталов на базе L-систем: снежинки, драконы и деревья.</div>
         </div>
     </div>
 </div>
 
-<div id="modal">
-    <button id="close-modal" onclick="closeApp()">× ЗАКРЫТЬ</button>
-    <iframe id="app-frame" src=""></iframe>
+<div id="launcher">
+    <button class="btn-exit" onclick="terminate()">Выйти [ESC]</button>
+    <iframe id="viewer" src=""></iframe>
 </div>
 
 <script>
-    function openApp(url) {
-        document.getElementById('app-frame').src = url;
-        document.getElementById('modal').style.display = 'block';
-        document.body.style.overflow = 'hidden'; // Запрет скролла хаба
+    function launch(file) {
+        document.getElementById('viewer').src = file;
+        document.getElementById('launcher').style.display = 'block';
+        document.body.style.overflow = 'hidden';
     }
 
-    function closeApp() {
-        document.getElementById('modal').style.display = 'none';
-        document.getElementById('app-frame').src = '';
+    function terminate() {
+        document.getElementById('launcher').style.display = 'none';
+        document.getElementById('viewer').src = '';
         document.body.style.overflow = 'auto';
     }
 
-    // Закрытие по ESC
     window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeApp();
+        if (e.key === 'Escape') terminate();
     });
 </script>
 
