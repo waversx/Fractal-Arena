@@ -22,7 +22,6 @@
             touch-action: none; 
         }
 
-        /* Кнопка настроек: вернул размер иконки */
         #menu-toggle {
             position: absolute; 
             top: 20px; 
@@ -34,7 +33,7 @@
             border-radius: 10px;
             cursor: pointer; 
             color: white; 
-            font-size: 22px; /* Вернул размер шестеренки */
+            font-size: 22px;
             z-index: 1001;
             display: flex; 
             align-items: center; 
@@ -49,16 +48,15 @@
             color: var(--accent); 
         }
 
-        /* Панель управления: отодвинул ниже и поменял скругления */
         #controls {
             position: absolute; 
-            top: 82px; /* Чуть ниже кнопки (было 75px) */
+            top: 82px;
             left: 20px;
             width: 320px; 
             background: rgba(10, 10, 15, 0.25);
             backdrop-filter: blur(8px);
             padding: 25px; 
-            border-radius: 10px; /* Скругление как у кнопки */
+            border-radius: 10px;
             border: 1px solid rgba(255,255,255,0.1);
             color: white; z-index: 1000; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.1);
             transform-origin: top left;
@@ -83,7 +81,7 @@
         button { 
             background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15);
             color: white; padding: 12px; 
-            border-radius: 10px; /* Скругление как у кнопки */
+            border-radius: 10px;
             cursor: pointer; font-size: 9px; transition: 0.2s;
             text-transform: uppercase; font-weight: 800; letter-spacing: 1px;
             -webkit-tap-highlight-color: transparent; text-shadow: 0 1px 2px rgba(0,0,0,0.8);
@@ -98,7 +96,7 @@
         .custom-color-pick { 
             display: flex; align-items: center; gap: 15px; 
             background: rgba(0,0,0,0.3); padding: 12px; 
-            border-radius: 10px; /* Скругление как у кнопки */
+            border-radius: 10px;
             margin-top: 5px; border: 1px solid rgba(255,255,255,0.1); 
         }
         input[type="color"] { border: none; width: 32px; height: 32px; cursor: pointer; background: none; }
@@ -119,10 +117,10 @@
         <h2>FRACTAL LAB</h2>
         <div class="label-row">Цветовая палитра</div>
         <div class="grid">
-            <button class="theme-btn btn-custom active" data-theme="0">Настраиваемая</button>
+            <button class="theme-btn btn-custom" data-theme="0">Настраиваемая</button>
             <button class="theme-btn" data-theme="1">Огонь</button>
             <button class="theme-btn" data-theme="2">Матрица</button>
-            <button class="theme-btn" data-theme="4">Радуга</button>
+            <button class="theme-btn active" data-theme="4">Радуга</button>
         </div>
         <div class="custom-color-pick">
             <input type="color" id="customColor" value="#00f2ff">
@@ -262,8 +260,9 @@
             color: gl.getUniformLocation(prog, "u_color")
         };
 
-        let target = { zoom: 0.4, x: -0.5, y: 0, density: 45, iter: 100, gap: 0.05, theme: 0, bg: 0 };
-        let current = { zoom: 0.1, x: 0, y: 0, density: 45, iter: 100, gap: 0.05, theme: 0, bg: 0 };
+        // --- ИЗМЕНЕНИЕ ЗДЕСЬ: Начальная тема = 4 (Радуга) ---
+        let target = { zoom: 0.4, x: -0.5, y: 0, density: 45, iter: 100, gap: 0.05, theme: 4, bg: 0 };
+        let current = { zoom: 0.1, x: 0, y: 0, density: 45, iter: 100, gap: 0.05, theme: 4, bg: 0 };
         let customColor = [0.0, 0.95, 1.0];
 
         const controls = document.getElementById('controls');
@@ -302,7 +301,6 @@
 
         document.getElementById('reset').onclick = () => { target.zoom = 0.4; target.x = -0.5; target.y = 0; };
 
-        // Управление ПК и Телефон
         let isDrag = false, lx, ly, lastPinchDist = 0;
         
         canvas.onmousedown = (e) => { isDrag = true; lx = e.clientX; ly = e.clientY; };
@@ -355,8 +353,6 @@
             }
         }, { passive: false });
         
-        // --- ВОТ ИСПРАВЛЕНИЕ ---
-        // Этот блок кода предотвращает "скачок" камеры, когда вы убираете один из двух пальцев
         canvas.addEventListener('touchend', (e) => {
             if (e.touches.length === 1) { 
                 lx = e.touches[0].clientX; 
