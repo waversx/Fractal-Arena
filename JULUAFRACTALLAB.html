@@ -22,7 +22,7 @@
             touch-action: none; 
         }
 
-        /* Кнопка настроек: СТРОГО ПО ВАШИМ ПАРАМЕТРАМ */
+        /* Кнопка настроек: вернул размер иконки */
         #menu-toggle {
             position: absolute; 
             top: 20px; 
@@ -34,7 +34,7 @@
             border-radius: 10px;
             cursor: pointer; 
             color: white; 
-            font-size: 13px; 
+            font-size: 22px; /* Вернул размер шестеренки */
             z-index: 1001;
             display: flex; 
             align-items: center; 
@@ -49,15 +49,17 @@
             color: var(--accent); 
         }
 
-        /* Панель управления */
+        /* Панель управления: отодвинул ниже и поменял скругления */
         #controls {
             position: absolute; 
-            top: 75px; 
+            top: 82px; /* Чуть ниже кнопки (было 75px) */
             left: 20px;
             width: 320px; 
             background: rgba(10, 10, 15, 0.25);
             backdrop-filter: blur(8px);
-            padding: 25px; border-radius: 28px; border: 1px solid rgba(255,255,255,0.1);
+            padding: 25px; 
+            border-radius: 10px; /* Скругление как у кнопки */
+            border: 1px solid rgba(255,255,255,0.1);
             color: white; z-index: 1000; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.1);
             transform-origin: top left;
             box-shadow: 0 20px 50px rgba(0,0,0,0.5);
@@ -80,7 +82,9 @@
         
         button { 
             background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15);
-            color: white; padding: 12px; border-radius: 12px; cursor: pointer; font-size: 9px; transition: 0.2s;
+            color: white; padding: 12px; 
+            border-radius: 10px; /* Скругление как у кнопки */
+            cursor: pointer; font-size: 9px; transition: 0.2s;
             text-transform: uppercase; font-weight: 800; letter-spacing: 1px;
             -webkit-tap-highlight-color: transparent; text-shadow: 0 1px 2px rgba(0,0,0,0.8);
         }
@@ -89,15 +93,21 @@
 
         .btn-custom { font-size: 7.5px; letter-spacing: 0.5px; }
         .bg-toggle { display: flex; gap: 8px; margin-top: 12px; }
-        .bg-btn { flex: 1; padding: 10px; font-size: 9px; border-radius: 10px; }
-        .custom-color-pick { display: flex; align-items: center; gap: 15px; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 14px; margin-top: 5px; border: 1px solid rgba(255,255,255,0.1); }
+        .bg-btn { flex: 1; padding: 10px; font-size: 9px; }
+        
+        .custom-color-pick { 
+            display: flex; align-items: center; gap: 15px; 
+            background: rgba(0,0,0,0.3); padding: 12px; 
+            border-radius: 10px; /* Скругление как у кнопки */
+            margin-top: 5px; border: 1px solid rgba(255,255,255,0.1); 
+        }
         input[type="color"] { border: none; width: 32px; height: 32px; cursor: pointer; background: none; }
-        .reset-btn { width: 100%; background: rgba(0,0,0,0.4); border: 1px dashed rgba(255,255,255,0.3); color: #aaa; font-size: 9px; margin-top: 10px; padding: 10px; border-radius: 10px; transition: 0.3s; }
+        .reset-btn { width: 100%; background: rgba(0,0,0,0.4); border: 1px dashed rgba(255,255,255,0.3); color: #aaa; font-size: 9px; margin-top: 10px; padding: 10px; transition: 0.3s; }
         .reset-btn:hover { border-color: #fff; color: #fff; }
 
         @media (max-width: 480px) {
-            #controls { width: calc(100% - 30px); left: 15px; top: 70px; padding: 20px; }
-            #menu-toggle { top: 20px; left: 20px; }
+            #controls { width: calc(100% - 30px); left: 15px; top: 78px; padding: 20px; }
+            #menu-toggle { top: 20px; left: 15px; }
         }
     </style>
 </head>
@@ -292,7 +302,9 @@
 
         document.getElementById('reset').onclick = () => { target.zoom = 0.4; target.x = -0.5; target.y = 0; };
 
+        // Управление ПК и Телефон
         let isDrag = false, lx, ly, lastPinchDist = 0;
+        
         canvas.onmousedown = (e) => { isDrag = true; lx = e.clientX; ly = e.clientY; };
         window.onmouseup = () => isDrag = false;
         window.onmousemove = (e) => {
@@ -342,6 +354,15 @@
                 lastPinchDist = dist; lx = cx; ly = cy;
             }
         }, { passive: false });
+        
+        // --- ВОТ ИСПРАВЛЕНИЕ ---
+        // Этот блок кода предотвращает "скачок" камеры, когда вы убираете один из двух пальцев
+        canvas.addEventListener('touchend', (e) => {
+            if (e.touches.length === 1) { 
+                lx = e.touches[0].clientX; 
+                ly = e.touches[0].clientY; 
+            }
+        });
 
         function animate() {
             const l = 0.14; 
