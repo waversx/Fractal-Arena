@@ -9,45 +9,44 @@
         canvas { display: block; cursor: grab; }
         canvas:active { cursor: grabbing; }
         
+        /* Кнопка Меню */
         #showMenuBtn {
-            position: absolute; bottom: 15px; right: 15px; z-index: 100; 
+            position: absolute; top: 20px; left: 20px; z-index: 100; 
             height: 42px; padding: 0 20px;
             background: rgba(20, 20, 25, 0.85); color: #00ffcc; 
             border: 1px solid #333; border-radius: 10px; 
             cursor: pointer; backdrop-filter: blur(5px); 
             font-weight: bold; font-size: 13px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.6); transition: bottom 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6); 
             display: flex; align-items: center; justify-content: center;
         }
-        body.has-bottom-slider #showMenuBtn { bottom: 110px; }
 
+        /* Окно Настроек (Меню) */
         #controls {
-            position: absolute; bottom: 67px; /* 15px + 42px (кнопка) + 10px (отступ) */
-            right: 15px; width: 340px; max-width: calc(100vw - 30px);
-            background: rgba(15, 15, 20, 0.2); padding: 20px; border-radius: 12px; border: 1px solid #333; 
+            position: absolute; 
+            top: 72px; /* Начинается под кнопкой (20 + 42 + 10) */
+            left: 20px; 
+            width: 340px; 
+            max-width: calc(100vw - 40px);
+            background: rgba(15, 15, 20, 0.2); 
+            padding: 20px; border-radius: 12px; border: 1px solid #333; 
             backdrop-filter: blur(15px); box-shadow: 0 10px 40px rgba(0,0,0,0.9); 
-            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), bottom 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); 
+            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s;
             z-index: 101; box-sizing: border-box; 
-            max-height: calc(100vh - 87px); /* 67px + 20px отступ сверху */
             overflow-y: auto;
+            /* Ограничение высоты: экран минус отступ сверху и 20px снизу */
+            max-height: calc(100vh - 92px); 
         }
-        #controls.hidden { transform: translateX(calc(100% + 50px)) !important; }
-        
-        /* Положение меню в режиме конструктора (Вертикально) */
+        #controls.hidden { transform: translateX(calc(-100% - 50px)) !important; opacity: 0; pointer-events: none; }
+
+        /* Если внизу есть ползунок угла, меню должно быть еще короче */
         body.has-bottom-slider #controls { 
-            bottom: 162px; /* 110px + 42px (кнопка) + 10px (отступ) */
-            max-height: calc(100vh - 182px); /* Ограничение высоты */
+            max-height: calc(100vh - 182px); /* Дополнительно 90px под ползунок */
         }
 
         @media (orientation: landscape) {
-            body.has-bottom-slider #controls { 
-                bottom: 67px; right: 15px; width: 45%; max-width: 400px;
-                max-height: calc(100vh - 87px);
-            }
-            body.has-bottom-slider #bottomAngleContainer { 
-                bottom: 15px; left: 15px; transform: none; width: 45%; max-width: 400px;
-            }
-            body.has-bottom-slider #showMenuBtn { bottom: 15px; }
+            body.has-bottom-slider #controls { width: 45%; max-width: 400px; }
+            body.has-bottom-slider #bottomAngleContainer { bottom: 15px; left: 50%; transform: translateX(-50%); width: 60%; max-width: 500px; }
         }
 
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
@@ -168,8 +167,8 @@
                 </optgroup>
                 <optgroup label="🐉 Пути и Кривые">
                     <option value="dragon">Кривая дракона</option>
-                    <option value="dragon_double">Тройной дракон</option>
-                    <option value="dragon_triple">Четверной дракон</option>
+                    <option value="dragon_double">Двойной дракон</option>
+                    <option value="dragon_triple">Тройной дракон</option>
                     <option value="levy">Кривая Леви</option>
                     <option value="terdragon">Кривая Terdragon</option>
                     <option value="koch_snow">Снежинка Коха</option>
@@ -213,11 +212,11 @@
                 <option value="triangle">Треугольная кривая</option>
                 <option value="cross">Крест</option>
             </select>
-            <label style="margin-top:10px">Аксиома (Старт):</label>
+            <label style="margin-top:10px">Аксиома:</label>
             <input type="text" id="lsAxiom" value="F-F-F-F">
             <label>Угол:</label>
             <input type="number" id="lsAngle" value="90" step="1">
-            <label>Правило F (Замена):</label>
+            <label>Правило F:</label>
             <input type="text" id="lsRuleF" value="F-F+F+FF-F-F+F">
             <button class="help-btn" id="openGuide">Как это работает?</button>
         </div>
@@ -505,8 +504,9 @@
                 cameraX += e.touches[0].clientX - lastMouseX; cameraY += e.touches[0].clientY - lastMouseY; 
                 lastMouseX = e.touches[0].clientX; lastMouseY = e.touches[0].clientY; renderFrame(); 
             } else if(e.touches.length === 2 && initialPinchDist) { 
-                const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
-                const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2, my = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                const t1 = e.touches[0], t2 = e.touches[1];
+                const d = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+                const mx = (t1.clientX + t2.clientX) / 2, my = (t1.clientY + t2.clientY) / 2;
                 cameraX += mx - lastMidX; cameraY += my - lastMidY;
                 const f = d / initialPinchDist; cameraX = mx - (mx - cameraX) * f; cameraY = my - (my - cameraY) * f; cameraZoom *= f;
                 initialPinchDist = d; lastMidX = mx; lastMidY = my; renderFrame(); 
@@ -541,15 +541,16 @@
         treeAngleInput.oninput = () => syncAngle(treeAngleInput.value);
 
         colorMode.onchange = () => {
-            document.getElementById('colorParams').style.display = colorMode.value === 'rainbow' ? 'none' : 'flex';
-            color2.style.display = colorMode.value === 'gradient' ? 'block' : 'none';
+            const mode = colorMode.value;
+            document.getElementById('colorParams').style.display = (mode === 'rainbow') ? 'none' : 'flex';
+            color2.style.display = (mode === 'gradient') ? 'block' : 'none';
             buildBatches(); renderFrame();
         };
 
         selectType.onchange = () => {
             const type = selectType.value, f = fractals[type];
             const hasSlider = (type === 'custom_ls' || type === 'pythagoras');
-            document.getElementById('body').className = hasSlider ? 'has-bottom-slider' : '';
+            document.getElementById('body').className = hasSlider ? 'has-bottom-slider is-constructor' : '';
             bottomAngleContainer.style.display = hasSlider ? 'block' : 'none';
             customLSDiv.style.display = (type === 'custom_ls') ? 'block' : 'none';
             treeParamsDiv.style.display = (type === 'pythagoras') ? 'block' : 'none';
