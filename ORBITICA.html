@@ -22,26 +22,10 @@
 
         body { display: flex; justify-content: center; align-items: center; }
 
-        /* КАСТОМНЫЙ СКРОЛЛБАР */
-        .side-panel::-webkit-scrollbar {
-            width: 5px; /* Очень тонкий */
-        }
-        .side-panel::-webkit-scrollbar-track {
-            background: transparent; /* Прозрачный фон дорожки */
-        }
-        .side-panel::-webkit-scrollbar-thumb {
-            background: var(--scroll-thumb);
-            border-radius: 10px;
-            transition: background 0.3s;
-        }
-        .side-panel::-webkit-scrollbar-thumb:hover {
-            background: var(--accent-color); /* Подсветка при наведении */
-        }
-        /* Для Firefox */
-        .side-panel {
-            scrollbar-width: thin;
-            scrollbar-color: var(--scroll-thumb) transparent;
-        }
+        .side-panel::-webkit-scrollbar { width: 5px; }
+        .side-panel::-webkit-scrollbar-track { background: transparent; }
+        .side-panel::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 10px; }
+        .side-panel::-webkit-scrollbar-thumb:hover { background: var(--accent-color); }
 
         .main-layout {
             display: flex; gap: 20px; padding: 20px;
@@ -50,46 +34,30 @@
         }
 
         #menuToggle {
-            display: none; 
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            height: 42px;
-            padding: 0 24px;
+            display: none; position: fixed;
+            top: 20px; left: 20px;
+            height: 42px; padding: 0 24px;
             background: rgba(13, 13, 13, 0.9);
             backdrop-filter: blur(10px);
             border: 1px solid var(--border-color);
             border-radius: 10px;
             color: var(--accent-color);
-            font-size: 13px;
-            font-weight: 500;
-            z-index: 100;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            cursor: pointer;
+            font-size: 13px; font-weight: 500;
+            z-index: 100; align-items: center; justify-content: center;
+            gap: 8px; cursor: pointer;
         }
 
         #menuToggle svg { width: 16px; height: 16px; transition: transform 0.4s; }
         #menuToggle.open svg { transform: rotate(90deg); }
 
         .canvas-container {
-            position: relative;
-            flex-grow: 1;
-            background: #000;
-            border-radius: 12px;
+            position: relative; flex-grow: 1;
+            background: #000; border-radius: 12px;
             border: 1px solid var(--border-color);
-            overflow: hidden;
-            display: flex;
-            margin: auto;
-            aspect-ratio: 1/1;
+            overflow: hidden; display: flex; margin: auto; aspect-ratio: 1/1;
         }
 
-        #glCanvas, #paintCanvas, #uiCanvas {
-            position: absolute; top: 0; left: 0;
-            width: 100%; height: 100%; touch-action: none; 
-        }
-
+        #glCanvas, #paintCanvas, #uiCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; }
         #uiCanvas { cursor: crosshair; }
         #paintCanvas { pointer-events: none; }
 
@@ -129,26 +97,19 @@
         @media (max-width: 900px) {
             .main-layout { padding: 0; flex-direction: column; }
             #menuToggle { display: flex; }
-
             .canvas-container { 
-                position: fixed;
-                top: 82px; left: 20px; right: 20px; bottom: 20px;
+                position: fixed; top: 82px; left: 20px; right: 20px; bottom: 20px;
                 width: auto; height: auto; flex-grow: 0;
                 border-radius: 20px; aspect-ratio: auto; margin: 0;
                 box-shadow: 0 10px 40px rgba(0,0,0,0.6);
             }
-
             .side-panel {
-                display: none; 
-                position: fixed;
+                display: none; position: fixed;
                 top: 82px; bottom: 20px; left: 50%;
-                transform: translateX(-50%);
-                width: 88%; max-width: 400px;
+                transform: translateX(-50%); width: 88%; max-width: 400px;
                 overflow-y: auto; overscroll-behavior: contain;
-                background: rgba(10, 10, 10, 0.98);
-                border: 1px solid #333;
-                box-shadow: 0 20px 50px rgba(0,0,0,0.9);
-                padding-right: 15px; /* Чтобы скролл не налезал на контент */
+                background: rgba(10, 10, 10, 0.98); border: 1px solid #333;
+                box-shadow: 0 20px 50px rgba(0,0,0,0.9); padding-right: 15px;
             }
             .side-panel.open { display: flex; }
         }
@@ -196,7 +157,7 @@
                 <input type="range" id="iterRange" min="0" max="300" step="1" value="150">
                 <label>Яркость фона</label>
                 <input type="range" id="brightRange" min="10" max="100" value="50">
-                <label>След (Кисть): <span id="valBrush" style="color:#55ff55; font-weight:bold;">0 (Выкл)</span></label>
+                <label>Размер кисти: <span id="valBrush" style="color:#55ff55; font-weight:bold;">0 (Выкл)</span></label>
                 <input type="range" id="brushRange" min="0" max="25" step="1" value="0">
             </div>
             <details open>
@@ -230,6 +191,7 @@
     precision highp float;
     uniform vec2 u_res;
     uniform vec2 u_c;
+    uniform vec2 u_z0; 
     uniform float u_mode;
     uniform float u_bright;
     uniform vec2 u_camPos;
@@ -246,7 +208,8 @@
         vec2 uv = (gl_FragCoord.xy - 0.5 * u_res) / min(u_res.y, u_res.x);
         vec2 z = uv * 2.0 * u_zoom + u_camPos;
         vec2 c = u_c;
-        if(u_mode == 2.0) { c = z; z = vec2(0.0); }
+        if(u_mode == 2.0) { c = z; z = u_z0; } 
+
         float iter = 0.0;
         const float maxIter = 130.0;
         for(float i=0.0; i < maxIter; i++) {
@@ -272,9 +235,10 @@
     const btnAnimate = document.getElementById('btnAnimate'), sidePanel = document.getElementById('sidePanel'), menuToggle = document.getElementById('menuToggle');
 
     let mode = 0, C = { x: -0.8, y: 0.156 }, Z0 = { x: 0.0, y: 0.0 };
+    let prevC = {...C}, prevZ0 = {...Z0};
     let cam = { x: 0, y: 0, zoom: 2.2 };
     let dragging = null, visibleC = true, visibleZ = true, isAnimating = false, animTime = 0;
-    let lastPanPos = { x: 0, y: 0 }, touchDist = 0, lastC = { x: C.x, y: C.y }, lastPaintPos = null;
+    let lastPanPos = { x: 0, y: 0 }, touchDist = 0, lastBrushPos = null;
 
     function resize() {
         const dpr = window.devicePixelRatio || 1;
@@ -301,9 +265,9 @@
     gl.enableVertexAttribArray(posLoc); gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
 
     const uRes = gl.getUniformLocation(program, "u_res"), uC = gl.getUniformLocation(program, "u_c"), 
-          uMode = gl.getUniformLocation(program, "u_mode"), uBright = gl.getUniformLocation(program, "u_bright"),
-          uCamPos = gl.getUniformLocation(program, "u_camPos"), uZoom = gl.getUniformLocation(program, "u_zoom"),
-          uOpacity = gl.getUniformLocation(program, "u_opacity");
+          uZ0 = gl.getUniformLocation(program, "u_z0"), uMode = gl.getUniformLocation(program, "u_mode"), 
+          uBright = gl.getUniformLocation(program, "u_bright"), uCamPos = gl.getUniformLocation(program, "u_camPos"), 
+          uZoom = gl.getUniformLocation(program, "u_zoom"), uOpacity = gl.getUniformLocation(program, "u_opacity");
 
     function toScreen(x, y) {
         const s = Math.min(uiCanvas.width, uiCanvas.height);
@@ -315,15 +279,26 @@
     }
 
     function update() {
+        // Запоминаем текущие значения параметров перед изменениями
+        const cChanged = (prevC.x !== C.x || prevC.y !== C.y);
+        const z0Changed = (prevZ0.x !== Z0.x || prevZ0.y !== Z0.y);
+
         if (isAnimating) {
             animTime += 0.01 * parseFloat(document.getElementById('animSpeed').value);
             let r = (animTime * parseFloat(document.getElementById('animTight').value)) % parseFloat(document.getElementById('animRadius').value);
             C.x = Math.cos(animTime) * r; C.y = Math.sin(animTime) * r;
         }
 
+        // Логика СБРОСА кисти
+        // Если мы в Жюлиа и двигаем C - сброс. Если в Мандельброте и двигаем Z0 - сброс.
+        if (mode === 1 && cChanged) paintCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
+        if (mode === 2 && z0Changed) paintCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
+        if (dragging === 'pan' || dragging === 'pinch') paintCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
+
         gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.uniform2f(uRes, glCanvas.width, glCanvas.height); gl.uniform2f(uC, C.x, C.y); gl.uniform2f(uCamPos, cam.x, cam.y);
-        gl.uniform1f(uZoom, cam.zoom); gl.uniform1f(uMode, mode);
+        gl.uniform2f(uRes, glCanvas.width, glCanvas.height); 
+        gl.uniform2f(uC, C.x, C.y); gl.uniform2f(uZ0, Z0.x, Z0.y);
+        gl.uniform2f(uCamPos, cam.x, cam.y); gl.uniform1f(uZoom, cam.zoom); gl.uniform1f(uMode, mode);
         gl.uniform1f(uBright, document.getElementById('brightRange').value / 100);
         gl.uniform1f(uOpacity, document.getElementById('opacityRange').value / 100);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -338,16 +313,28 @@
             }
         }
 
+        // КИСТЬ: работает теперь и при анимации
         const dpr = window.devicePixelRatio || 1;
-        if (C.x !== lastC.x || C.y !== lastC.y || dragging === 'pan' || dragging === 'pinch') {
-            paintCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height); lastC = {...C};
-        }
         let brushSize = parseInt(document.getElementById('brushRange').value);
-        if (brushSize > 0 && dragging === 'Z0' && !escaped) {
-            let sZ = toScreen(Z0.x, Z0.y); paintCtx.strokeStyle = 'rgba(85, 255, 85, 0.7)'; paintCtx.lineWidth = brushSize * 2 * dpr; paintCtx.lineCap = 'round';
-            if (lastPaintPos) { paintCtx.beginPath(); paintCtx.moveTo(lastPaintPos.x, lastPaintPos.y); paintCtx.lineTo(sZ.x, sZ.y); paintCtx.stroke(); }
-            lastPaintPos = sZ;
-        } else { lastPaintPos = null; }
+        let shouldDraw = false;
+        let drawPos = {x: 0, y: 0};
+        let brushColor = 'rgba(85, 255, 85, 0.6)';
+
+        if (brushSize > 0 && !escaped) {
+            if (mode === 1 && dragging === 'Z0') { 
+                shouldDraw = true; drawPos = toScreen(Z0.x, Z0.y);
+            } else if (mode === 2 && (dragging === 'C' || isAnimating)) { 
+                shouldDraw = true; drawPos = toScreen(C.x, C.y); brushColor = 'rgba(255, 85, 85, 0.6)';
+            }
+        }
+
+        if (shouldDraw) {
+            paintCtx.strokeStyle = brushColor; paintCtx.lineWidth = brushSize * 2 * dpr; paintCtx.lineCap = 'round';
+            if (lastBrushPos) {
+                paintCtx.beginPath(); paintCtx.moveTo(lastBrushPos.x, lastBrushPos.y); paintCtx.lineTo(drawPos.x, drawPos.y); paintCtx.stroke();
+            }
+            lastBrushPos = drawPos;
+        } else { lastBrushPos = null; }
 
         uiCtx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
         let step = Math.pow(10, Math.floor(Math.log10(cam.zoom * 0.5))); if ((cam.zoom * 2) / step < 4) step /= 2;
@@ -360,14 +347,16 @@
         let s0 = toScreen(0, 0); uiCtx.moveTo(s0.x, 0); uiCtx.lineTo(s0.x, uiCanvas.height); uiCtx.moveTo(0, s0.y); uiCtx.lineTo(uiCanvas.width, s0.y); uiCtx.stroke();
 
         if (orbit.length > 0) {
-            uiCtx.beginPath(); uiCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)'; uiCtx.lineWidth = 1.5 * dpr;
+            uiCtx.beginPath(); uiCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)'; uiCtx.lineWidth = 1 * dpr;
             let st = toScreen(orbit[0].x, orbit[0].y); uiCtx.moveTo(st.x, st.y);
             orbit.forEach(p => { let s = toScreen(p.x, p.y); uiCtx.lineTo(s.x, s.y); }); uiCtx.stroke();
-            orbit.forEach((p, i) => { let s = toScreen(p.x, p.y); uiCtx.fillStyle = i === 0 ? '#55ff55' : `hsla(${200+i}, 100%, 75%, ${Math.max(0, 1-i/120)})`; uiCtx.beginPath(); uiCtx.arc(s.x, s.y, (i===0?5:2)*dpr, 0, Math.PI*2); uiCtx.fill(); });
+            orbit.forEach((p, i) => { let s = toScreen(p.x, p.y); uiCtx.fillStyle = i === 0 ? '#55ff55' : `hsla(${200+i}, 100%, 75%, ${Math.max(0, 1-i/120)})`; uiCtx.beginPath(); uiCtx.arc(s.x, s.y, (i===0?5:1.5)*dpr, 0, Math.PI*2); uiCtx.fill(); });
         }
         if (visibleC) drawHandle(C, '#ff5555', 'C'); if (visibleZ) drawHandle(Z0, '#55ff55', 'Z₀');
         valC.innerText = `${C.x.toFixed(4)} + ${C.y.toFixed(4)}i`; valZ.innerText = `${Z0.x.toFixed(4)} + ${Z0.y.toFixed(4)}i`;
         lblIter.innerText = maxI; status.innerText = escaped ? "УЛЕТАЕТ" : "СТАБИЛЬНА"; status.className = 'status-badge ' + (escaped ? 'escaping' : 'stable');
+        
+        prevC = {...C}; prevZ0 = {...Z0};
         requestAnimationFrame(update);
     }
 
@@ -377,54 +366,4 @@
         uiCtx.fillStyle = 'white'; uiCtx.font = `bold ${13*dpr}px Arial`; uiCtx.textAlign = "left"; uiCtx.fillText(label, s.x + 12*dpr, s.y - 12*dpr);
     }
 
-    function getEventPos(e) { const r = uiCanvas.getBoundingClientRect(); let cX = e.clientX, cY = e.clientY; if (e.touches && e.touches.length > 0) { cX = e.touches[0].clientX; cY = e.touches[0].clientY; } return { x: cX - r.left, y: cY - r.top }; }
-
-    uiCanvas.addEventListener('touchstart', e => {
-        if (e.touches.length === 2) { dragging = 'pinch'; touchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }
-        else {
-            const pos = getEventPos(e), dpr = window.devicePixelRatio || 1, sC = toScreen(C.x, C.y), sZ = toScreen(Z0.x, Z0.y);
-            if (visibleC && Math.hypot(pos.x*dpr - sC.x, pos.y*dpr - sC.y) < 40*dpr) { dragging = 'C'; isAnimating = false; }
-            else if (visibleZ && Math.hypot(pos.x*dpr - sZ.x, pos.y*dpr - sZ.y) < 40*dpr) dragging = 'Z0';
-            else { dragging = 'pan'; lastPanPos = {...pos}; }
-        }
-    }, {passive: false});
-
-    window.addEventListener('touchmove', e => {
-        if (!dragging) return; const pos = getEventPos(e);
-        if (dragging === 'pinch' && e.touches.length === 2) {
-            const newD = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY), r = uiCanvas.getBoundingClientRect();
-            let mx = (e.touches[0].clientX+e.touches[1].clientX)/2-r.left, my = (e.touches[0].clientY+e.touches[1].clientY)/2-r.top;
-            const mB = toMath(mx, my); cam.zoom *= touchDist / newD; const mA = toMath(mx, my);
-            cam.x += (mB.x - mA.x); cam.y += (mB.y - mA.y); touchDist = newD;
-        } else if (dragging === 'pan') {
-            const s = Math.min(uiCanvas.width, uiCanvas.height)/(window.devicePixelRatio||1);
-            cam.x -= (pos.x - lastPanPos.x) * (2*cam.zoom/s); cam.y += (pos.y - lastPanPos.y) * (2*cam.zoom/s); lastPanPos = {...pos};
-        } else { const m = toMath(pos.x, pos.y); if (dragging === 'C') { C.x = m.x; C.y = m.y; } else { Z0.x = m.x; Z0.y = m.y; } }
-        e.preventDefault();
-    }, { passive: false });
-
-    uiCanvas.addEventListener('mousedown', e => {
-        const pos = getEventPos(e), dpr = window.devicePixelRatio || 1, sC = toScreen(C.x, C.y), sZ = toScreen(Z0.x, Z0.y);
-        if (visibleC && Math.hypot(pos.x*dpr - sC.x, pos.y*dpr - sC.y) < 30*dpr) { dragging = 'C'; isAnimating = false; }
-        else if (visibleZ && Math.hypot(pos.x*dpr - sZ.x, pos.y*dpr - sZ.y) < 30*dpr) dragging = 'Z0';
-        else { dragging = 'pan'; lastPanPos = {...pos}; }
-    });
-
-    window.addEventListener('mousemove', e => {
-        if (!dragging) return; const pos = getEventPos(e);
-        if (dragging === 'pan') { const s = Math.min(uiCanvas.width, uiCanvas.height)/(window.devicePixelRatio||1); cam.x -= (pos.x - lastPanPos.x) * (2*cam.zoom/s); cam.y += (pos.y - lastPanPos.y) * (2*cam.zoom/s); lastPanPos = {...pos}; }
-        else { const m = toMath(pos.x, pos.y); if (dragging === 'C') { C.x = m.x; C.y = m.y; } else { Z0.x = m.x; Z0.y = m.y; } }
-    });
-
-    window.addEventListener('mouseup', () => dragging = null); window.addEventListener('touchend', () => dragging = null);
-    ['animSpeed', 'animRadius', 'animTight'].forEach(id => { const i = document.getElementById(id); if(i) i.oninput = function() { document.getElementById('val' + id.charAt(0).toUpperCase() + id.slice(1)).innerText = this.value; }; });
-    document.getElementById('opacityRange').oninput = function() { document.getElementById('valOpacity').innerText = this.value + "%"; };
-    document.querySelectorAll('.control-group button').forEach(b => { if(b.id.startsWith('btn') && b.id !== 'btnAnimate') b.onclick = () => { mode = {btnNone:0, btnJulia:1, btnMandel:2}[b.id]; document.querySelectorAll('.control-group button').forEach(x => x.classList.remove('active')); b.classList.add('active'); }});
-    btnAnimate.onclick = () => { isAnimating = !isAnimating; btnAnimate.classList.toggle('animating', isAnimating); btnAnimate.innerText = isAnimating ? "Остановить" : "Запустить спираль"; };
-    document.getElementById('toggleC').onclick = function() { visibleC = !visibleC; this.className = visibleC ? 'toggle-active' : 'toggle-inactive'; };
-    document.getElementById('toggleZ').onclick = function() { visibleZ = !visibleZ; this.className = visibleZ ? 'toggle-active' : 'toggle-inactive'; };
-
-    update();
-</script>
-</body>
-</html>
+    function getEventPos(e) { const r = uiCanvas.getBoundingClientRect(); let cX = e.clientX, cY = e.clientY; if (e.touches && e.touches.length > 0) { cX = e
