@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Fractal Explorer</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background: #000; font-family: 'Segoe UI', Roboto, sans-serif;
+            user-select: none; touch-action: none;
+        }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #uiCanvas { z-index: 10; }
+        
+        .floating-btn {
+            position: absolute; z-index: 30;
+            background: rgba(20, 20, 25, 0.85); color: white; 
+            border-radius: 8px; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px); transition: 0.2s;
+            width: 45px; height: 45px; display: flex; align-items: center; justify-content: center;
+            font-size: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .floating-btn:hover { background: rgba(50, 50, 60, 0.95); }
+        #menu-toggle { top: 15px; left: 15px; }
+        #julia-btn { top: 15px; left: 75px; font-weight: bold; font-size: 18px; }
+        #julia-btn.active { background: #0066ff; border-color: #0066ff; }
+
+        #sidebar {
+            position: absolute; top: 75px; left: 15px; z-index: 20; width: 260px;
+            background: rgba(15, 15, 20, 0.95); color: white; padding: 20px;
+            border-radius: 12px; backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            max-height: calc(100vh - 100px); overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+        }
+        #sidebar.hidden { transform: translateX(-150%); opacity: 0; pointer-events: none; }
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        #lock-btn { cursor: pointer; font-size: 16px; opacity: 0.5; transition: 0.2s; }
+        #lock-btn.locked { opacity: 1; color: #0066ff; }
+        h1 { margin: 0; font-size: 18px; letter-spacing: 0.5px; }
+        .set-indicator { color: #0066ff; font-weight: bold; font-size: 11px; margin-bottom: 15px; display: block; text-transform: uppercase; letter-spacing: 1px; }
+        .section-title { font-size: 10px; color: #666; margin: 15px 0 8px 0; font-weight: bold; border-bottom: 1px solid #333; padding-bottom: 4px; text-transform: uppercase; }
+        .setting-row { margin-bottom: 12px; }
+        .setting-row label { display: flex; justify-content: space-between; font-size: 11px; color: #aaa; margin-bottom: 6px; }
+        select {
+            width: 100%; background: #222; color: #fff; border: 1px solid #444;
+            padding: 10px; border-radius: 6px; outline: none; font-size: 13px; appearance: none;
+            cursor: pointer; transition: 0.2s;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 12px center;
+        }
+        input[type=range] { width: 100%; height: 4px; background: #333; border-radius: 2px; outline: none; accent-color: #0066ff; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <canvas id="glCanvas"></canvas>
+    <canvas id="uiCanvas"></canvas>
+    
+    <div id="menu-toggle" class="floating-btn">≡</div>
+    <div id="julia-btn" class="floating-btn">J</div>
+
+    <div id="sidebar" class="hidden">
+        <div class="sidebar-header">
+            <h1>Настройки</h1>
+            <div id="lock-btn">🔓</div>
+        </div>
+        <span id="set-name" class="set-indicator">Режим: Базовый</span>
+
+        <div class="section-title">Формула</div>
+        <div class="setting-row">
+            <select id="fractal-type">
+                <option value="0">Мультиброт (Z^n + C)</option>
+                <option value="1">Горящий корабль</option>
+                <option value="2">Мандельбар (Трикорн)</option>
+                <option value="3">Буффало (|Z^n - Z| + C)</option>
+                <option value="4">Кельтский (|Re| + iIm)</option>
+                <option value="5">Нова (Метод Ньютона)</option>
+            </select>
+        </div>
+
+        <div class="setting-row">
+            <label><span>Степень (n):</span> <span id="power-val">2.0</span></label>
+            <input type="range" id="power-slider" min="-6" max="6" step="0.1" value="2.0">
+        </div>
+
+        <div class="section-title">Внешний вид</div>
+        <div class="setting-row">
+            <label>Палитра</label>
+            <select id="palette-type">
+                <option value="4">Монохром (Default)</option>
+                <option value="0">Красный Неон</option>
+                <option value="1">Огонь на черном</option>
+                <option value="2">Радуга на черном</option>
+                <option value="3">Кибер-Золото</option>
+            </select>
+        </div>
+
+        <div class="setting-row">
+            <label><span>Детализация:</span> <span id="iter-val">Авто</span></label>
+            <input type="range" id="iter-slider" min="50" max="2500" step="50" value="1000">
+        </div>
+    </div>
+
+    <script>
+        const glCanvas = document.getElementById('glCanvas');
+        const uiCanvas = document.getElementById('uiCanvas');
+        const gl = glCanvas.getContext('webgl');
+        const uiCtx = uiCanvas.getContext('2d');
+
+        let width, height, zoom = 200, targetZoom = 200, panX = 0, panY = 0, targetPanX = 0, targetPanY = 0;
+        let mouseX = 0, mouseY = 0;
+        let fParams = { type: 0, power: 2.0, palette: 4, customIter: 0 };
+        let isJuliaMode = false, isPickingJulia = false, juliaC = { re: 0, im: 0 }, isLocked = false;
+
+        const sidebar = document.getElementById('sidebar');
+        const menuToggle = document.getElementById('menu-toggle');
+        const lockBtn = document.getElementById('lock-btn');
+        const juliaBtn = document.getElementById('julia-btn');
+        
+        menuToggle.onclick = (e) => { e.stopPropagation(); sidebar.classList.toggle('hidden'); };
+        lockBtn.onclick = () => { isLocked = !isLocked; lockBtn.innerHTML = isLocked ? '🔒' : '🔓'; lockBtn.classList.toggle('locked', isLocked); };
+
+        window.addEventListener('mousedown', (e) => {
+            if (!isLocked && !sidebar.classList.contains('hidden') && !sidebar.contains(e.target) && e.target.id !== 'menu-toggle') sidebar.classList.add('hidden');
+        });
+
+        document.getElementById('fractal-type').onchange = e => fParams.type = parseInt(e.target.value);
+        document.getElementById('power-slider').oninput = e => {
+            let v = parseFloat(e.target.value); if(Math.abs(v) < 0.1) v = 0.1;
+            fParams.power = v; document.getElementById('power-val').innerText = v.toFixed(1);
+        };
+        document.getElementById('palette-type').onchange = e => fParams.palette = parseInt(e.target.value);
+        document.getElementById('iter-slider').oninput = e => { fParams.customIter = parseInt(e.target.value); document.getElementById('iter-val').innerText = fParams.customIter; };
+
+        juliaBtn.onclick = (e) => {
+            e.preventDefault();
+            if (isJuliaMode) { isJuliaMode = false; isPickingJulia = false; document.getElementById('set-name').innerText = "Режим: Базовый"; juliaBtn.classList.remove('active'); } 
+            else { isPickingJulia = !isPickingJulia; if (isPickingJulia) juliaBtn.classList.add('active'); else juliaBtn.classList.remove('active'); }
+        };
+
+        function initWebGL() {
+            const vsSource = `attribute vec2 a_pos; void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }`;
+            const fsSource = `
+                precision highp float; 
+                uniform vec2 u_res; uniform vec2 u_pan; uniform float u_zoom; uniform int u_maxIter;
+                uniform int u_isJulia; uniform vec2 u_juliaC; uniform float u_alpha;
+                uniform int u_type; uniform float u_power; uniform int u_palette;
+
+                vec2 c_mul(vec2 a, vec2 b) { return vec2(a.x*b.x - a.y*b.y, a.x*b.y + a.y*b.x); }
+                vec2 c_div(vec2 a, vec2 b) { float d = dot(b,b); return vec2(dot(a,b), a.y*b.x - a.x*b.y)/d; }
+                vec2 c_pow(vec2 z, float n) {
+                    float r = length(z); if(r < 0.000001) return vec2(0.0);
+                    float a = atan(z.y, z.x); return pow(r, n) * vec2(cos(a*n), sin(a*n));
+                }
+
+                vec3 pal(float t, vec3 a, vec3 b, vec3 c, vec3 d) { return a + b*cos( 6.28318*(c*t+d) ); }
+
+                vec3 getColor(float t) {
+                    if(u_palette == 0) return pal(t, vec3(0.5,0.05,0.0), vec3(0.5,0.2,0.0), vec3(1.0,1.0,0.5), vec3(0.0,0.1,0.2)); // Красный Неон
+                    if(u_palette == 1) { // Огонь на черном
+                        vec3 c = pal(t, vec3(0.5,0.2,0.1), vec3(0.5,0.2,0.1), vec3(1.0,1.0,0.5), vec3(0.0,0.1,0.2));
+                        return c * smoothstep(0.0, 0.5, t);
+                    }
+                    if(u_palette == 2) { // Радуга на черном
+                        vec3 c = pal(t, vec3(0.5), vec3(0.5), vec3(1.0), vec3(0.0,0.33,0.67));
+                        return c * smoothstep(0.0, 0.4, t);
+                    }
+                    if(u_palette == 3) return pal(t, vec3(0.8,0.5,0.4), vec3(0.2,0.4,0.2), vec3(2.0,1.0,1.0), vec3(0.0,0.25,0.25)); // Золото
+                    return vec3(t); // Монохром
+                }
+
+                void main() { 
+                    vec2 coord = vec2(gl_FragCoord.x, u_res.y - gl_FragCoord.y); 
+                    vec2 p = (coord - u_pan) / u_zoom;
+                    vec2 z, c;
+                    if(u_isJulia == 1) { z = p; c = u_juliaC; } 
+                    else { z = vec2(0.0); c = p; if(u_type == 5) z = vec2(1.0,0.0); }
+                    
+                    int iter = 0; float smoothIter = 0.0; float limit = 16.0;
+                    for(int i=0; i<3000; i++) { 
+                        if(i >= u_maxIter) break; 
+                        if(u_type == 0) z = c_pow(z, u_power) + c;
+                        else if(u_type == 1) z = c_pow(vec2(abs(z.x), abs(z.y)), u_power) + c;
+                        else if(u_type == 2) z = c_pow(vec2(z.x, -z.y), u_power) + c;
+                        else if(u_type == 3) z = abs(c_pow(z, u_power) - z) + c;
+                        else if(u_type == 4) {
+                            vec2 zn = c_pow(z, u_power);
+                            z = vec2(abs(zn.x), zn.y) + c;
+                        }
+                        else if(u_type == 5) {
+                            vec2 zn = c_pow(z, u_power);
+                            z = z - c_div(zn - vec2(1,0), u_power * c_pow(z, u_power-1.0)) + c;
+                            limit = 100.0;
+                        }
+                        if(dot(z, z) > limit) {
+                            float p_val = abs(u_power); if(p_val < 1.1) p_val = 2.0;
+                            smoothIter = float(iter) + 1.0 - log2(log2(dot(z,z))/2.0) / log2(p_val);
+                            break;
+                        }
+                        iter++; 
+                    }
+                    if(iter >= u_maxIter) gl_FragColor = vec4(0.0, 0.0, 0.0, u_alpha);
+                    else {
+                        float t = smoothIter / 40.0;
+                        gl_FragColor = vec4(getColor(t), u_alpha); 
+                    }
+                }`;
+            
+            const vs = gl.createShader(gl.VERTEX_SHADER); gl.shaderSource(vs, vsSource); gl.compileShader(vs);
+            const fs = gl.createShader(gl.FRAGMENT_SHADER); gl.shaderSource(fs, fsSource); gl.compileShader(fs);
+            const prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+            const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+            let pos = gl.getAttribLocation(prog, "a_pos"); gl.enableVertexAttribArray(pos); gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+            return { prog, u_res: gl.getUniformLocation(prog, "u_res"), u_pan: gl.getUniformLocation(prog, "u_pan"), u_zoom: gl.getUniformLocation(prog, "u_zoom"), u_maxIter: gl.getUniformLocation(prog, "u_maxIter"), u_isJulia: gl.getUniformLocation(prog, "u_isJulia"), u_juliaC: gl.getUniformLocation(prog, "u_juliaC"), u_alpha: gl.getUniformLocation(prog, "u_alpha"), u_type: gl.getUniformLocation(prog, "u_type"), u_power: gl.getUniformLocation(prog, "u_power"), u_palette: gl.getUniformLocation(prog, "u_palette") };
+        }
+        const glInfo = initWebGL();
+
+        function render() {
+            requestAnimationFrame(render);
+            if (!isPickingJulia) { panX += (targetPanX - panX) * 0.2; panY += (targetPanY - panY) * 0.2; zoom += (targetZoom - zoom) * 0.2; }
+            gl.useProgram(glInfo.prog); gl.clear(gl.COLOR_BUFFER_BIT); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            let dMax = fParams.customIter > 0 ? fParams.customIter : Math.min(2500, 100 + Math.floor(Math.log10(Math.max(1, zoom/100))*150));
+            gl.uniform2f(glInfo.u_res, width, height); gl.uniform2f(glInfo.u_pan, panX, panY); gl.uniform1f(glInfo.u_zoom, zoom); gl.uniform1i(glInfo.u_maxIter, dMax);
+            gl.uniform1i(glInfo.u_type, fParams.type); gl.uniform1f(glInfo.u_power, fParams.power); gl.uniform1i(glInfo.u_palette, fParams.palette);
+            gl.uniform1i(glInfo.u_isJulia, isJuliaMode ? 1 : 0); gl.uniform2f(glInfo.u_juliaC, juliaC.re, juliaC.im); gl.uniform1f(glInfo.u_alpha, 1.0); gl.drawArrays(gl.TRIANGLES, 0, 6);
+            if (isPickingJulia) { gl.uniform1i(glInfo.u_isJulia, 1); gl.uniform2f(glInfo.u_juliaC, (mouseX-panX)/zoom, (mouseY-panY)/zoom); gl.uniform1f(glInfo.u_alpha, 0.4); gl.drawArrays(gl.TRIANGLES, 0, 6); }
+            uiCtx.clearRect(0, 0, width, height);
+            if(isPickingJulia) { uiCtx.strokeStyle='#fff'; uiCtx.beginPath(); uiCtx.moveTo(mouseX-10, mouseY); uiCtx.lineTo(mouseX+10, mouseY); uiCtx.moveTo(mouseX, mouseY-10); uiCtx.lineTo(mouseX, mouseY+10); uiCtx.stroke(); }
+        }
+        requestAnimationFrame(render);
+
+        window.onkeydown = e => { if(e.code === 'KeyJ' && !e.repeat) juliaBtn.click(); };
+        let isDragging = false, clickX, clickY, lastDX, lastDY, lastDist = 0;
+        uiCanvas.oncontextmenu = e => e.preventDefault();
+        const handleStart = (x, y) => { if (isPickingJulia) { juliaC = { re: (x - panX) / zoom, im: (y - panY) / zoom }; return; } isDragging = true; clickX = lastDX = x; clickY = lastDY = y; };
+        const handleMove = (x, y) => { mouseX = x; mouseY = y; if (isPickingJulia) { juliaC = { re: (x - panX) / zoom, im: (y - panY) / zoom }; return; } if (isDragging) { targetPanX += x - lastDX; targetPanY += y - lastDY; lastDX = x; lastDY = y; } };
+        const handleEnd = () => { if (isPickingJulia) { isPickingJulia = false; isJuliaMode = true; document.getElementById('set-name').innerText = "Режим: Жюлиа"; return; } isDragging = false; };
+        window.onmousedown = e => { if(e.target===uiCanvas && e.button===0) handleStart(e.clientX, e.clientY); };
+        window.onmousemove = e => handleMove(e.clientX, e.clientY);
+        window.onmouseup = e => { if(e.button===0) handleEnd(); };
+        uiCanvas.addEventListener('touchstart', e => { if(e.touches.length === 1) handleStart(e.touches[0].clientX, e.touches[0].clientY); else if(e.touches.length === 2) { isDragging = false; lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); } });
+        uiCanvas.addEventListener('touchmove', e => { e.preventDefault(); if(e.touches.length === 1) handleMove(e.touches[0].clientX, e.touches[0].clientY); else if(e.touches.length === 2 && !isPickingJulia) { let d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); let midX = (e.touches[0].clientX + e.touches[1].clientX) / 2, midY = (e.touches[0].clientY + e.touches[1].clientY) / 2; let ratio = d / lastDist; targetPanX = midX - (midX - targetPanX) * ratio; targetPanY = midY - (midY - targetPanY) * ratio; targetZoom *= ratio; lastDist = d; } }, {passive: false});
+        uiCanvas.addEventListener('touchend', e => handleEnd());
+        window.onwheel = e => { if(e.target!==uiCanvas)return; e.preventDefault(); let z=1.2; if(e.deltaY<0){ targetPanX=e.clientX-(e.clientX-targetPanX)*z; targetPanY=e.clientY-(e.clientY-targetPanY)*z; targetZoom*=z; } else { targetPanX=e.clientX-(e.clientX-targetPanX)/z; targetPanY=e.clientY-(e.clientY-targetPanY)/z; targetZoom/=z; } };
+        window.onresize = () => { width=window.innerWidth; height=window.innerHeight; glCanvas.width=uiCanvas.width=width; glCanvas.height=uiCanvas.height=height; gl.viewport(0,0,width,height); if(panX===0){ zoom=targetZoom=height/3.5; panX=targetPanX=width/2; panY=targetPanY=height/2; } };
+        window.onresize();
+    </script>
+</body>
+</html>
